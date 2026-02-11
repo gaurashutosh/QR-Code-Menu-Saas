@@ -245,6 +245,7 @@ export default function RestaurantSetup({ onComplete }: { onComplete?: () => voi
                 value={formData.name}
                 onChange={handleChange}
                 placeholder="e.g., The Spice Garden"
+                autoComplete="organization"
                 className="dark:bg-zinc-950 dark:border-gray-800 dark:text-white"
               />
 
@@ -355,6 +356,7 @@ export default function RestaurantSetup({ onComplete }: { onComplete?: () => voi
                       value={formData.phone}
                       onChange={handleChange}
                       placeholder="9876543210"
+                      autoComplete="tel"
                       className="flex-1 dark:bg-zinc-950 dark:border-gray-800 dark:text-white"
                     />
                   </div>
@@ -366,6 +368,7 @@ export default function RestaurantSetup({ onComplete }: { onComplete?: () => voi
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="contact@restaurant.com"
+                  autoComplete="email"
                   className="dark:bg-zinc-950 dark:border-gray-800 dark:text-white"
                 />
               </div>
@@ -376,6 +379,7 @@ export default function RestaurantSetup({ onComplete }: { onComplete?: () => voi
                 value={formData.street}
                 onChange={handleChange}
                 placeholder="123 Main Street"
+                autoComplete="street-address"
                 className="dark:bg-zinc-950 dark:border-gray-800 dark:text-white"
               />
 
@@ -386,6 +390,7 @@ export default function RestaurantSetup({ onComplete }: { onComplete?: () => voi
                   value={formData.city}
                   onChange={handleChange}
                   placeholder="City"
+                  autoComplete="address-level2"
                   className="dark:bg-zinc-950 dark:border-gray-800 dark:text-white"
                 />
                 <Input
@@ -394,6 +399,7 @@ export default function RestaurantSetup({ onComplete }: { onComplete?: () => voi
                   value={formData.state}
                   onChange={handleChange}
                   placeholder="State"
+                  autoComplete="address-level1"
                   className="dark:bg-zinc-950 dark:border-gray-800 dark:text-white"
                 />
                 <Input
@@ -402,6 +408,7 @@ export default function RestaurantSetup({ onComplete }: { onComplete?: () => voi
                   value={formData.pincode}
                   onChange={handleChange}
                   placeholder="Zip"
+                  autoComplete="postal-code"
                   className="dark:bg-zinc-950 dark:border-gray-800 dark:text-white"
                 />
                 <Input

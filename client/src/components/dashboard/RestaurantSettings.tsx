@@ -342,6 +342,7 @@ export default function RestaurantSettings() {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Enter restaurant name"
+                  autoComplete="organization"
                 />
 
                 <div>
@@ -462,6 +463,7 @@ export default function RestaurantSettings() {
                         onChange={handleChange}
                         placeholder="9876543210"
                         className="flex-1"
+                        autoComplete="tel"
                       />
                     </div>
                   </div>
@@ -473,6 +475,7 @@ export default function RestaurantSettings() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="contact@restaurant.com"
+                    autoComplete="email"
                   />
                 </div>
 
@@ -492,6 +495,7 @@ export default function RestaurantSettings() {
                     value={formData.address.street}
                     onChange={handleChange}
                     placeholder="123 Main Street"
+                    autoComplete="street-address"
                   />
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -501,6 +505,7 @@ export default function RestaurantSettings() {
                       value={formData.address.city}
                       onChange={handleChange}
                       placeholder="Mumbai"
+                      autoComplete="address-level2"
                     />
 
                     <Input
@@ -509,6 +514,7 @@ export default function RestaurantSettings() {
                       value={formData.address.state}
                       onChange={handleChange}
                       placeholder="Maharashtra"
+                      autoComplete="address-level1"
                     />
                   </div>
 
@@ -519,6 +525,7 @@ export default function RestaurantSettings() {
                       value={formData.address.pincode}
                       onChange={handleChange}
                       placeholder="400001"
+                      autoComplete="postal-code"
                     />
 
                     <Input
