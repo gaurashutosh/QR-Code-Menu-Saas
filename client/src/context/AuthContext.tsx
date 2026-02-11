@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
     } catch (err: any) {
       console.error('Error fetching user data:', err);
-      setError(err.message);
+      setError(err.message || 'Failed to connect to the server');
       setUser(null);
       setRestaurant(null);
       setSubscription(null);

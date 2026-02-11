@@ -13,6 +13,12 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use(async (config) => {
+  // Fix: Strip leading slash from URL to ensure it joins correctly with baseURL's /api path
+  // If we don't do this, Axios treats /auth/me as relative to origin, stripping the /api prefix.
+  if (config.url?.startsWith('/')) {
+    config.url = config.url.substring(1);
+  }
+
   const token = await getIdToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

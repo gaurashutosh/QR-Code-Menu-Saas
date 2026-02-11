@@ -18,14 +18,17 @@ import RestaurantSetup from '@/components/dashboard/RestaurantSetup';
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, firebaseUser, restaurant, loading, isRestaurantOnboarded, refreshUser, error: authError } = useAuth();
   const currentTab = searchParams.get('tab') || 'overview';
-  const { user, restaurant, loading, isRestaurantOnboarded, refreshUser } = useAuth();
 
   useEffect(() => {
-    if (!loading && !user) {
+    // Only redirect to login if we are definitely not logged in via Firebase.
+    // If we have a firebaseUser but no profile (user is null), we might have a server error.
+    // In that case, we show an error message instead of redirecting to avoid a loop.
+    if (!loading && !firebaseUser) {
       router.replace(paths.login);
     }
-  }, [loading, user, router]);
+  }, [loading, firebaseUser, router]);
 
   // Handle redirect to setup if not onboarded
   useEffect(() => {
@@ -78,6 +81,25 @@ function DashboardContent() {
         return <Overview onNavigate={handleNavigate} />;
     }
   };
+
+  if (authError && firebaseUser && !user) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8 text-center">
+        <div className="bg-red-50 dark:bg-red-950/20 p-6 rounded-2xl border border-red-100 dark:border-red-900/30 max-w-sm">
+          <h2 className="text-xl font-bold text-red-700 dark:text-red-400 mb-2">Connection Error</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            We couldn&apos;t load your profile. This might be due to a server issue or a bad connection.
+          </p>
+          <Button onClick={() => refreshUser()} className="w-full">
+            Try Again
+          </Button>
+          <Button variant="ghost" onClick={() => router.push(paths.login)} className="w-full mt-2 text-gray-500">
+            Back to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
