@@ -132,14 +132,8 @@ export const deleteCategory = async (req, res, next) => {
       });
     }
 
-    // Check if category has items
-    const itemCount = await MenuItem.countDocuments({ category: category._id });
-    if (itemCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot delete category with ${itemCount} items. Please move or delete items first.`,
-      });
-    }
+    // Delete all items in this category
+    await MenuItem.deleteMany({ category: category._id });
 
     await category.deleteOne();
 

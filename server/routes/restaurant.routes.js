@@ -21,41 +21,66 @@ const restaurantValidation = [
     .trim()
     .isLength({ max: 500 })
     .withMessage("Description cannot exceed 500 characters"),
-  body("phone")
-    .optional()
+  body("slug")
+    .optional({ checkFalsy: true })
     .trim()
-    .matches(/^[0-9+\-() ]*$/)
-    .withMessage("Phone number can only contain digits and + - ( )"),
+    .toLowerCase()
+    .matches(/^[a-z0-9-]+$/)
+    .withMessage(
+      "Handle can only contain lowercase letters, numbers, and hyphens",
+    )
+    .isLength({ min: 3, max: 50 })
+    .withMessage("Handle must be between 3 and 50 characters"),
+  body("phone")
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^\+?[0-9]{10,15}$/)
+    .withMessage("Phone number must be a valid format (e.g., +911234567890)"),
   body("email")
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isEmail()
     .withMessage("Please provide a valid email"),
   // Address validation
-  body([
-    "address.street",
-    "address.city",
-    "address.state",
-    "address.pincode",
-    "address.country",
-  ])
-    .optional()
+  body("address.street")
+    .optional({ checkFalsy: true })
     .trim()
     .matches(/^[a-zA-Z0-9\s,.-]*$/)
     .withMessage(
-      "Address fields can only contain alphanumeric characters, spaces, and , . -",
+      "Street address can only contain alphanumeric characters, spaces, and , . -",
     ),
-  // Social links validation
-  body([
-    "socialLinks.website",
-    "socialLinks.instagram",
-    "socialLinks.facebook",
-    "socialLinks.twitter",
-  ])
+  body(["address.city", "address.state"])
     .optional({ checkFalsy: true })
     .trim()
+    .matches(/^[a-zA-Z\s]*$/)
+    .withMessage("City and State can only contain alphabets and spaces"),
+  body("address.pincode")
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^[0-9]{6}$/)
+    .withMessage("Pincode must be exactly 6 digits"),
+  body("address.country").trim().notEmpty().withMessage("Country is required"),
+  // Social links validation
+  body("socialLinks.website")
+    .optional({ values: "falsy" })
+    .trim()
     .isURL()
-    .withMessage("Please provide a valid URL for social links"),
+    .withMessage("Please provide a valid URL for website"),
+  body("socialLinks.instagram")
+    .optional({ values: "falsy" })
+    .trim()
+    .isURL()
+    .withMessage("Please provide a valid URL for instagram"),
+  body("socialLinks.facebook")
+    .optional({ values: "falsy" })
+    .trim()
+    .isURL()
+    .withMessage("Please provide a valid URL for facebook"),
+  body("socialLinks.twitter")
+    .optional({ values: "falsy" })
+    .trim()
+    .isURL()
+    .withMessage("Please provide a valid URL for twitter"),
 ];
 
 // All routes require authentication

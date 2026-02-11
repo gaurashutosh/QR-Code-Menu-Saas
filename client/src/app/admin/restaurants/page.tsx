@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react';
+import { paths } from '@/lib/paths';
 
 interface RestaurantData {
   _id: string;
@@ -51,7 +52,7 @@ export default function AdminRestaurantsPage() {
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'admin')) {
-      router.push('/dashboard');
+      router.push(paths.dashboard.root);
       toast.error('Admin access required');
     }
   }, [authLoading, user, router]);
@@ -178,19 +179,19 @@ export default function AdminRestaurantsPage() {
             </div>
             <nav className="flex gap-4">
               <Link
-                href="/admin"
+                href={paths.admin.root}
                 className="px-4 py-2 text-gray-400 hover:text-white rounded-lg font-medium"
               >
                 Overview
               </Link>
               <Link
-                href="/admin/users"
+                href={paths.admin.users}
                 className="px-4 py-2 text-gray-400 hover:text-white rounded-lg font-medium"
               >
                 Users
               </Link>
               <Link
-                href="/admin/restaurants"
+                href={paths.admin.restaurants}
                 className="px-4 py-2 bg-orange-500 text-white rounded-lg font-medium"
               >
                 Restaurants

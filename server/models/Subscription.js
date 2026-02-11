@@ -26,7 +26,7 @@ const subscriptionSchema = new mongoose.Schema(
     },
     plan: {
       type: String,
-      enum: ["trial", "basic", "pro"],
+      enum: ["trial", "Premium", "basic", "pro"],
       default: "trial",
     },
     billingCycle: {

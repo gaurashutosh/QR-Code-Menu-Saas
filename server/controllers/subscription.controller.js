@@ -4,10 +4,8 @@ import User from "../models/User.js";
 import Restaurant from "../models/Restaurant.js";
 
 const PRICE_IDS = {
-  basic_monthly: process.env.STRIPE_PRICE_BASIC_MONTHLY,
-  pro_monthly: process.env.STRIPE_PRICE_PRO_MONTHLY,
-  basic_yearly: process.env.STRIPE_PRICE_BASIC_YEARLY,
-  pro_yearly: process.env.STRIPE_PRICE_PRO_YEARLY,
+  monthly: "price_1SzD0cFFIKPWDHvRyDpvOwtH",
+  yearly: "price_1SzD2AFFIKPWDHvR4jVqhDLw",
 };
 
 /**
@@ -16,7 +14,7 @@ const PRICE_IDS = {
  */
 export const createCheckoutSession = async (req, res, next) => {
   try {
-    const { plan } = req.body; // e.g., "basic_monthly", "pro_yearly"
+    const { plan } = req.body; // "monthly" or "yearly"
 
     const priceId = PRICE_IDS[plan];
     if (!priceId) {
@@ -42,8 +40,8 @@ export const createCheckoutSession = async (req, res, next) => {
 
     if (
       existingSubscription &&
-      existingSubscription.plan !== "trial" &&
-      existingSubscription.isActive()
+      existingSubscription.isActive() &&
+      existingSubscription.plan !== "trial"
     ) {
       return res.status(400).json({
         success: false,
@@ -84,7 +82,7 @@ export const createCheckoutSession = async (req, res, next) => {
       metadata: {
         userId: req.user._id.toString(),
         restaurantId: restaurant._id.toString(),
-        plan: plan.split("_")[0], // "basic" or "pro"
+        plan: "Premium",
       },
     });
 
@@ -160,7 +158,10 @@ async function handleCheckoutComplete(session) {
       stripeCustomerId: session.customer,
       stripePriceId: stripeSubscription.items.data[0].price.id,
       plan: plan,
-      billingCycle: stripeSubscription.items.data[0].price.recurring.interval,
+      billingCycle:
+        stripeSubscription.items.data[0].price.recurring.interval === "year"
+          ? "yearly"
+          : "monthly",
       status: "active",
       currentPeriodStart: new Date(
         stripeSubscription.current_period_start * 1000,
@@ -306,6 +307,57 @@ export const getPaymentHistory = async (req, res, next) => {
     res.json({
       success: true,
       data: history,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reconcile subscription plan (fix inconsistencies)
+ * POST /api/subscription/reconcile
+ */
+export const reconcileSubscription = async (req, res, next) => {
+  try {
+    const restaurant = await Restaurant.findOne({ owner: req.user._id });
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "No restaurant found",
+      });
+    }
+
+    const subscription = await Subscription.findOne({
+      restaurant: restaurant._id,
+    });
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: "No subscription found",
+      });
+    }
+
+    let updated = false;
+
+    // Self-healing: If there's a Stripe ID but plan is trial, it means we missed the update
+    if (
+      subscription.plan === "trial" &&
+      subscription.stripeSubscriptionId &&
+      subscription.status === "active"
+    ) {
+      subscription.plan = "Premium";
+      await subscription.save();
+      updated = true;
+    }
+
+    res.json({
+      success: true,
+      message: updated ? "Subscription reconciled" : "No changes needed",
+      data: {
+        plan: subscription.plan,
+        status: subscription.status,
+      },
     });
   } catch (error) {
     next(error);

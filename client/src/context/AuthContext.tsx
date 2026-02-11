@@ -27,6 +27,7 @@ interface Subscription {
   isActive: boolean;
   daysRemaining: number;
   currentPeriodEnd?: string;
+  billingCycle?: string;
 }
 
 interface AuthContextType {
@@ -34,8 +35,19 @@ interface AuthContextType {
   user: User | null;
   restaurant: Restaurant | null;
   subscription: Subscription | null;
+  /**
+   * True while we are determining the current auth state and loading profile data.
+   * Use this to avoid redirect flicker while Firebase initializes.
+   */
   loading: boolean;
   error: string | null;
+  /**
+   * Convenience booleans derived from the raw auth state.
+   * Prefer these helpers in routing/layout logic instead of re-deriving conditions per page.
+   */
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isRestaurantOnboarded: boolean;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -47,6 +59,9 @@ const AuthContext = createContext<AuthContextType>({
   subscription: null,
   loading: true,
   error: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  isRestaurantOnboarded: false,
   signOut: async () => {},
   refreshUser: async () => {},
 });
@@ -106,6 +121,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isAuthenticated = !!user && !!firebaseUser;
+  const isAdmin = !!user && user.role === 'admin';
+  const isRestaurantOnboarded = !!restaurant;
+
   return (
     <AuthContext.Provider
       value={{
@@ -115,6 +134,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscription,
         loading,
         error,
+        isAuthenticated,
+        isAdmin,
+        isRestaurantOnboarded,
         signOut: handleSignOut,
         refreshUser,
       }}

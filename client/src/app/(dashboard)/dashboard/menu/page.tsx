@@ -24,6 +24,8 @@ import {
   X,
   Check,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/Switch';
+import { paths } from '@/lib/paths';
 
 interface Category {
   _id: string;
@@ -58,13 +60,15 @@ export default function MenuPage() {
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
 
   useEffect(() => {
     if (!authLoading && !restaurant) {
-      router.push('/dashboard');
+      router.push(paths.dashboard.root);
     }
   }, [authLoading, restaurant, router]);
 
@@ -113,21 +117,8 @@ export default function MenuPage() {
   };
 
   const handleDeleteCategory = async (category: Category) => {
-    const itemCount = getItemsByCategory(category._id).length;
-    if (itemCount > 0) {
-      toast.error(`Cannot delete category with ${itemCount} items. Move or delete items first.`);
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to delete "${category.name}"?`)) return;
-
-    try {
-      await categoryAPI.delete(category._id);
-      toast.success('Category deleted');
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete category');
-    }
+    setDeletingCategory(category);
+    setShowDeleteModal(true);
   };
 
   const handleDeleteItem = async (item: MenuItem) => {
@@ -167,7 +158,7 @@ export default function MenuPage() {
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
+              <Link href={paths.dashboard.root} className="text-gray-500 hover:text-gray-700">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
@@ -301,17 +292,11 @@ export default function MenuPage() {
                                 <p className="text-sm text-gray-500">₹{item.price}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleToggleAvailability(item)}
-                                className={`px-3 py-1 text-xs font-medium rounded-full ${
-                                  item.isAvailable
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}
-                              >
-                                {item.isAvailable ? 'Available' : 'Unavailable'}
-                              </button>
+                            <div className="flex items-center gap-4">
+                              <Switch
+                                checked={item.isAvailable}
+                                onChange={() => handleToggleAvailability(item)}
+                              />
                               <button
                                 onClick={() => {
                                   setEditingItem(item);
@@ -374,6 +359,29 @@ export default function MenuPage() {
             setShowItemModal(false);
             setEditingItem(null);
             fetchData();
+          }}
+        />
+      )}
+
+      {/* Delete Category Modal */}
+      {showDeleteModal && deletingCategory && (
+        <DeleteCategoryModal
+          category={deletingCategory}
+          itemCount={getItemsByCategory(deletingCategory._id).length}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDeletingCategory(null);
+          }}
+          onConfirm={async () => {
+            try {
+              await categoryAPI.delete(deletingCategory._id);
+              toast.success('Category and all its items deleted');
+              setShowDeleteModal(false);
+              setDeletingCategory(null);
+              fetchData();
+            } catch (error: any) {
+              toast.error(error.response?.data?.message || 'Failed to delete category');
+            }
           }}
         />
       )}
@@ -661,6 +669,90 @@ function ItemModal({
             </Button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Delete Category Modal (GitHub Style)
+function DeleteCategoryModal({
+  category,
+  itemCount,
+  onClose,
+  onConfirm,
+}: {
+  category: Category;
+  itemCount: number;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const [step, setStep] = useState(1);
+  const [confirmName, setConfirmName] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    await onConfirm();
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div className="flex items-center gap-3 text-red-600 mb-4">
+          <Trash2 className="w-6 h-6" />
+          <h2 className="text-xl font-bold">Delete Category</h2>
+        </div>
+
+        {step === 1 ? (
+          <div>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Are you sure you want to delete <span className="font-bold text-gray-900">"{category.name}"</span>? 
+              {itemCount > 0 && (
+                <> This will also permanently delete <span className="font-bold text-red-600 underline">{itemCount} items</span> associated with it.</>
+              )}
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="flex-1 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200"
+                onClick={() => setStep(2)}
+              >
+                I understand, proceed
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="text-gray-600 mb-4 leading-relaxed">
+              To confirm, please type <span className="font-bold text-gray-900 select-all">"{category.name}"</span> in the box below:
+            </p>
+            <Input
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              placeholder="Type category name..."
+              className="mb-6 focus:ring-red-500 border-red-100"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setStep(1)} disabled={loading}>
+                Back
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="flex-1 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200"
+                disabled={confirmName !== category.name || loading}
+                loading={loading}
+                onClick={handleConfirm}
+              >
+                Delete Category
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

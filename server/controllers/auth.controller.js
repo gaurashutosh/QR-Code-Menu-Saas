@@ -23,13 +23,6 @@ export const getMe = async (req, res, next) => {
         restaurant: restaurant._id,
         user: req.user._id,
       });
-      // console.log("Subscription found:", subscription ? "yes" : "no");
-      // if (subscription) {
-      //   console.log("Subscription methods:", {
-      //     isActive: typeof subscription.isActive,
-      //     getDaysRemaining: typeof subscription.getDaysRemaining
-      //   });
-      // }
     }
 
     const userData = {
@@ -41,6 +34,7 @@ export const getMe = async (req, res, next) => {
             slug: restaurant.slug,
             logoUrl: restaurant.logoUrl,
             isActive: restaurant.isActive,
+            menuViewCount: restaurant.menuViewCount,
           }
         : null,
       subscription: subscription
@@ -56,6 +50,7 @@ export const getMe = async (req, res, next) => {
                 ? subscription.getDaysRemaining()
                 : 0,
             currentPeriodEnd: subscription.currentPeriodEnd,
+            billingCycle: subscription.billingCycle,
           }
         : null,
     };

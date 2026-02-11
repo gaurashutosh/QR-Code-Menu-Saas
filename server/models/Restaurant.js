@@ -101,14 +101,29 @@ const restaurantSchema = new mongoose.Schema(
 // Generate slug before saving
 restaurantSchema.pre("save", async function () {
   if (this.isModified("name") || !this.slug) {
-    let baseSlug = slugify(this.name, { lower: true, strict: true });
-    let slug = baseSlug;
+    // Only auto-generate if name is modified OR slug is missing
+    // If slug is modified directly, we trust it (uniqueness check still applies)
+    if (!this.isModified("slug")) {
+      let baseSlug = slugify(this.name, { lower: true, strict: true });
+
+      // Add random 4-digit suffix for new restaurants
+      if (this.isNew) {
+        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+        this.slug = `${baseSlug}-${randomSuffix}`;
+      } else {
+        // For existing restaurants where only name changed, keep it simple or regenerate
+        this.slug = baseSlug;
+      }
+    }
+
+    // Ensure uniqueness (in case of collisions with random or manual slugs)
+    let slug = this.slug;
+    let baseSlug = slug.split("-").slice(0, -1).join("-") || slug;
     let counter = 1;
 
-    // Check for existing slugs
     const Restaurant = mongoose.model("Restaurant");
     while (await Restaurant.findOne({ slug, _id: { $ne: this._id } })) {
-      slug = `${baseSlug}-${counter}`;
+      slug = `${this.slug}-${counter}`;
       counter++;
     }
     this.slug = slug;
@@ -117,7 +132,6 @@ restaurantSchema.pre("save", async function () {
 
 // Index for faster queries
 restaurantSchema.index({ owner: 1 });
-restaurantSchema.index({ slug: 1 });
 restaurantSchema.index({ isActive: 1 });
 
 const Restaurant = mongoose.model("Restaurant", restaurantSchema);

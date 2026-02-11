@@ -18,6 +18,7 @@ import {
   Palette,
   Settings2,
 } from 'lucide-react';
+import { paths } from '@/lib/paths';
 
 interface RestaurantFull {
   _id: string;
@@ -61,6 +62,19 @@ const CUISINE_OPTIONS = [
   'Beverages',
   'Desserts',
   'Street Food',
+  'Multi-Cuisine',
+  'Others',
+];
+
+const COUNTRY_CODES = [
+  { code: '+91', country: 'India' },
+  { code: '+1', country: 'USA/Canada' },
+  { code: '+44', country: 'UK' },
+  { code: '+61', country: 'Australia' },
+  { code: '+971', country: 'UAE' },
+  { code: '+65', country: 'Singapore' },
+  { code: '+49', country: 'Germany' },
+  { code: '+33', country: 'France' },
 ];
 
 export default function SettingsPage() {
@@ -73,9 +87,12 @@ export default function SettingsPage() {
 
   const [formData, setFormData] = useState({
     name: '',
+    slug: '',
     description: '',
     cuisineType: [] as string[],
+    customCuisine: '',
     themeColor: '#f97316',
+    countryCode: '+91',
     phone: '',
     email: '',
     address: {
@@ -100,7 +117,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!authLoading && !restaurant) {
-      router.push('/dashboard');
+      router.push(paths.dashboard.root);
     }
   }, [authLoading, restaurant, router]);
 
@@ -113,12 +130,31 @@ export default function SettingsPage() {
         const response = await restaurantAPI.getById(restaurant._id);
         const data = response.data.data as RestaurantFull;
         setFullRestaurant(data);
+
+        // Handle custom cuisine types that are not in CUISINE_OPTIONS
+        const defaultCuisines = data.cuisineType?.filter((c) => CUISINE_OPTIONS.includes(c)) || [];
+        const customCuisines = data.cuisineType?.filter((c) => !CUISINE_OPTIONS.includes(c)) || [];
+        const finalCuisineType = customCuisines.length > 0 ? [...defaultCuisines, 'Others'] : defaultCuisines;
+        const customCuisineString = customCuisines.join(', ');
+
+        // Parse phone number into countryCode and local digits
+        let countryCode = '+91';
+        let localPhone = data.phone || '';
+        const foundCode = COUNTRY_CODES.find((c: any) => localPhone.startsWith(c.code));
+        if (foundCode) {
+          countryCode = foundCode.code;
+          localPhone = localPhone.slice(foundCode.code.length);
+        }
+
         setFormData({
           name: data.name || '',
+          slug: data.slug || '',
           description: data.description || '',
-          cuisineType: data.cuisineType || [],
+          cuisineType: finalCuisineType,
+          customCuisine: customCuisineString,
           themeColor: data.themeColor || '#f97316',
-          phone: data.phone || '',
+          countryCode: countryCode,
+          phone: localPhone,
           email: data.email || '',
           address: {
             street: data.address?.street || '',
@@ -151,8 +187,21 @@ export default function SettingsPage() {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type } = e.target;
+    let { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+
+    // Strict validations
+    if (name === 'phone') {
+      value = value.replace(/\D/g, '').slice(0, 10);
+    } else if (name === 'address.pincode') {
+      value = value.replace(/\D/g, '').slice(0, 6);
+    } else if (name === 'address.city' || name === 'address.state') {
+      value = value.replace(/[^a-zA-Z\s]/g, '');
+    } else if (name === 'address.street') {
+      value = value.replace(/[^a-zA-Z0-9\s,.-]/g, '');
+    } else if (name === 'customCuisine') {
+      value = value.replace(/[^a-zA-Z\s,]/g, '');
+    }
 
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
@@ -171,13 +220,33 @@ export default function SettingsPage() {
     }
   };
 
-  const handleCuisineToggle = (cuisine: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      cuisineType: prev.cuisineType.includes(cuisine)
-        ? prev.cuisineType.filter((c) => c !== cuisine)
-        : [...prev.cuisineType, cuisine],
+  const handleCountryCodeChange = (code: string) => {
+    const country = COUNTRY_CODES.find(c => c.code === code)?.country || 'India';
+    setFormData(prev => ({ 
+      ...prev, 
+      countryCode: code,
+      address: {
+        ...prev.address,
+        country: country // Sync country name with phone code
+      }
     }));
+  };
+
+  const handleCuisineToggle = (cuisine: string) => {
+    setFormData((prev) => {
+      const isSelected = prev.cuisineType.includes(cuisine);
+      const isOthers = cuisine === 'Others';
+
+      const nextCuisineType = isSelected
+        ? prev.cuisineType.filter((c) => c !== cuisine)
+        : [...prev.cuisineType, cuisine];
+
+      return {
+        ...prev,
+        cuisineType: nextCuisineType,
+        customCuisine: isOthers && isSelected ? '' : prev.customCuisine,
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -186,11 +255,36 @@ export default function SettingsPage() {
 
     setLoading(true);
     try {
-      await restaurantAPI.update(restaurant._id, formData);
+      // Merge custom cuisines if 'Others' is selected
+      const customCuisines = formData.cuisineType.includes('Others') && formData.customCuisine.trim()
+        ? formData.customCuisine.split(',').map(c => c.trim()).filter(c => c !== '')
+        : [];
+
+      const finalCuisineType = formData.cuisineType
+        .filter((c) => c !== 'Others')
+        .concat(customCuisines);
+
+      const updateData = {
+        ...formData,
+        cuisineType: finalCuisineType,
+        phone: formData.phone ? `${formData.countryCode}${formData.phone}` : '',
+        socialLinks: {
+          website: formData.socialLinks.website || undefined,
+          instagram: formData.socialLinks.instagram || undefined,
+          facebook: formData.socialLinks.facebook || undefined,
+        }
+      };
+
+      await restaurantAPI.update(restaurant._id, updateData);
       toast.success('Settings saved successfully!');
       refreshUser();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save settings');
+      const errorData = error.response?.data;
+      if (errorData?.errors && Array.isArray(errorData.errors)) {
+        errorData.errors.forEach((msg: string) => toast.error(msg));
+      } else {
+        toast.error(errorData?.message || 'Failed to save settings');
+      }
     } finally {
       setLoading(false);
     }
@@ -218,7 +312,7 @@ export default function SettingsPage() {
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
+              <Link href={paths.dashboard.root} className="text-gray-500 hover:text-gray-700">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
@@ -227,7 +321,7 @@ export default function SettingsPage() {
               </div>
             </div>
               <Link
-                href="/dashboard/feedback"
+                href={paths.dashboard.feedback}
                 className="mr-3 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
               >
                 Send Feedback
@@ -275,6 +369,22 @@ export default function SettingsPage() {
                     placeholder="Enter restaurant name"
                   />
 
+                  <div>
+                    <Input
+                      label="Restaurant Handle (URL) *"
+                      name="slug"
+                      value={formData.slug}
+                      onChange={handleChange}
+                      placeholder="e.g., spicy-treat-mumbai"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Your menu will be available at:{' '}
+                      <span className="font-mono text-orange-600 bg-orange-50 px-1 rounded">
+                        {typeof window !== 'undefined' ? window.location.origin : ''}/menu/{formData.slug || '...'}
+                      </span>
+                    </p>
+                  </div>
+
                   <Textarea
                     label="Description"
                     name="description"
@@ -289,7 +399,7 @@ export default function SettingsPage() {
                       Cuisine Types
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {CUISINE_OPTIONS.map((cuisine) => (
+                      {CUISINE_OPTIONS.map((cuisine: string) => (
                         <button
                           key={cuisine}
                           type="button"
@@ -304,6 +414,18 @@ export default function SettingsPage() {
                         </button>
                       ))}
                     </div>
+
+                    {formData.cuisineType.includes('Others') && (
+                      <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <Input
+                          label="Custom Cuisine Name"
+                          name="customCuisine"
+                          value={formData.customCuisine}
+                          onChange={handleChange}
+                          placeholder="e.g., Street Food, Lebanese, etc."
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -344,14 +466,31 @@ export default function SettingsPage() {
                 
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Phone Number"
-                      name="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      placeholder="+91 98765 43210"
-                    />
+                    <div className="w-full">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone Number
+                      </label>
+                      <div className="flex gap-2">
+                        <select
+                          name="countryCode"
+                          value={formData.countryCode}
+                          onChange={(e) => handleCountryCodeChange(e.target.value)}
+                          className="w-[120px] px-2 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                        >
+                          {COUNTRY_CODES.map((c: any) => (
+                            <option key={c.code} value={c.code}>{c.code} ({c.country})</option>
+                          ))}
+                        </select>
+                        <Input
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          placeholder="9876543210"
+                          className="flex-1"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">Exactly 10 digits required</p>
+                    </div>
 
                     <Input
                       label="Email"
@@ -411,6 +550,8 @@ export default function SettingsPage() {
                       value={formData.address.country}
                       onChange={handleChange}
                       placeholder="India"
+                      readOnly
+                      className="bg-gray-50 cursor-not-allowed"
                     />
                   </div>
                 </div>

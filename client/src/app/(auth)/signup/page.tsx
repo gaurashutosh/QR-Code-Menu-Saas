@@ -1,16 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { QrCode, Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
-import { signUpWithEmail, signInWithGoogle } from '@/lib/firebase';
+import { QrCode, Mail, Lock, Eye, EyeOff, User as UserIcon } from 'lucide-react';
+import { signUpWithEmail, signInWithGoogle, auth } from '@/lib/firebase';
+import { updateProfile } from 'firebase/auth';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import toast from 'react-hot-toast';
+import { requireNoAuth } from '@/lib/routeGuards';
+import { paths } from '@/lib/paths';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { firebaseUser, loading: authLoading } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,6 +23,14 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    requireNoAuth(
+      { firebaseUser, isLoading: authLoading },
+      router,
+      { redirectTo: paths.dashboard.root }
+    );
+  }, [firebaseUser, authLoading, router]);
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,10 +53,20 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const userCredential = await signUpWithEmail(email, password);
+      
       // Update display name
-      // Note: Firebase Auth updateProfile would be called here
+      try {
+        await updateProfile(userCredential.user, {
+          displayName: name
+        });
+      } catch (profileError) {
+        console.error('Error updating profile:', profileError);
+        // We don't block the flow if profile update fails, 
+        // but we log it for debugging
+      }
+
       toast.success('Account created successfully!');
-      router.push('/dashboard');
+      router.push(paths.dashboard.root);
     } catch (error: any) {
       console.error('Signup error:', error);
       if (error.code === 'auth/email-already-in-use') {
@@ -62,8 +85,8 @@ export default function SignupPage() {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      toast.success('Account created!');
-      router.push('/dashboard');
+      toast.success('Welcome! Signed in successfully.');
+      router.push(paths.dashboard.root);
     } catch (error: any) {
       console.error('Google signup error:', error);
       if (error.code !== 'auth/popup-closed-by-user') {
@@ -137,40 +160,54 @@ export default function SignupPage() {
           {/* Email Signup Form */}
           <form onSubmit={handleEmailSignup} className="space-y-4">
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <Input
+                id="name"
+                label="Full Name"
+                labelClassName="sr-only"
                 type="text"
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="pl-10"
+                required
               />
             </div>
 
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <Input
+                id="email"
+                label="Email Address"
+                labelClassName="sr-only"
                 type="email"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10"
+                required
               />
             </div>
 
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <Input
+                id="password"
+                label="Password"
+                labelClassName="sr-only"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10 pr-10"
+                required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -179,12 +216,25 @@ export default function SignupPage() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <Input
+                id="confirmPassword"
+                label="Confirm Password"
+                labelClassName="sr-only"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Confirm password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="pl-10"
+                className="pl-10 pr-10"
+                required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
 
             <Button type="submit" className="w-full" loading={loading}>
@@ -205,7 +255,7 @@ export default function SignupPage() {
 
           <p className="mt-4 text-center text-gray-600">
             Already have an account?{' '}
-            <Link href="/login" className="text-orange-600 hover:text-orange-700 font-medium">
+            <Link href={paths.login} className="text-orange-600 hover:text-orange-700 font-medium">
               Log in
             </Link>
           </p>

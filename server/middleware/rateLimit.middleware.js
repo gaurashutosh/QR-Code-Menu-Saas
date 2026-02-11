@@ -16,8 +16,8 @@ export const apiLimiter = rateLimit({
 // Strict rate limit for auth routes: 10 requests per 10 minutes
 // Helps prevent brute force attacks on login/signup
 export const authLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 10,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Increased from 10 to allow frequent polling/refreshes
   message: {
     success: false,
     message: "Too many login attempts, please try again after 10 minutes",

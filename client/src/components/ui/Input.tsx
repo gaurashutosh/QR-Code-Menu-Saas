@@ -3,12 +3,14 @@ import { cn } from '@/lib/utils';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  labelClassName?: string;
   error?: string;
   helperText?: string;
 }
 
 export function Input({
   label,
+  labelClassName,
   error,
   helperText,
   className,
@@ -22,7 +24,7 @@ export function Input({
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-gray-700 mb-1"
+          className={cn("block text-sm font-medium text-gray-700 mb-1", labelClassName)}
         >
           {label}
         </label>
@@ -51,12 +53,14 @@ export function Input({
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
+  labelClassName?: string;
   error?: string;
   helperText?: string;
 }
 
 export function Textarea({
   label,
+  labelClassName,
   error,
   helperText,
   className,
@@ -70,7 +74,7 @@ export function Textarea({
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-gray-700 mb-1"
+          className={cn("block text-sm font-medium text-gray-700 mb-1", labelClassName)}
         >
           {label}
         </label>

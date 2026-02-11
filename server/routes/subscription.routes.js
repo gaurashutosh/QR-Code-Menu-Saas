@@ -22,4 +22,7 @@ router.get("/history", subscriptionController.getPaymentHistory);
 // Cancel subscription
 router.post("/cancel", subscriptionController.cancelSubscription);
 
+// Reconcile subscription (fix inconsistencies)
+router.post("/reconcile", subscriptionController.reconcileSubscription);
+
 export default router;

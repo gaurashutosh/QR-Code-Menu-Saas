@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRestaurant, useMenu } from '@/hooks/useRestaurant';
 import { Button } from '@/components/ui/Button';
+import { paths } from '@/lib/paths';
 import {
   QrCode,
   Utensils,
@@ -19,6 +20,7 @@ import {
   AlertCircle,
   Shield,
   MessageSquare,
+  Crown,
 } from 'lucide-react';
 import { formatPrice, getDaysRemaining } from '@/lib/utils';
 
@@ -29,7 +31,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push(paths.login);
     }
   }, [loading, user, router]);
 
@@ -60,7 +62,7 @@ export default function DashboardPage() {
           <p className="text-gray-600 mb-8">
             Create your restaurant profile to start building your digital menu.
           </p>
-          <Link href="/dashboard/setup">
+          <Link href={paths.dashboard.setup}>
             <Button className="w-full">
               <Plus className="w-5 h-5 mr-2" />
               Create Restaurant
@@ -101,7 +103,7 @@ export default function DashboardPage() {
               {/* Admin Link - only for admins */}
               {user?.role === 'admin' && (
                 <Link
-                  href="/admin"
+                  href={paths.admin.root}
                   className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-medium text-sm hover:opacity-90 transition"
                 >
                   <Shield className="w-4 h-4" />
@@ -109,7 +111,7 @@ export default function DashboardPage() {
                 </Link>
               )}
               <Link
-                href={`/menu/${restaurant.slug}`}
+                href={paths.menuForSlug(restaurant.slug)}
                 target="_blank"
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
               >
@@ -139,7 +141,7 @@ export default function DashboardPage() {
                 Your free trial expires in {daysRemaining} days. Upgrade now to continue using QR Menu.
               </p>
             </div>
-            <Link href="/dashboard/subscription">
+            <Link href={paths.dashboard.subscription}>
               <Button size="sm">Upgrade</Button>
             </Link>
           </div>
@@ -173,7 +175,7 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Menu Management */}
-          <ActionCard
+            <ActionCard
             title="Menu Management"
             description="Add, edit, and organize your menu items and categories"
             icon={<Utensils className="w-8 h-8" />}
@@ -182,7 +184,7 @@ export default function DashboardPage() {
           />
 
           {/* QR Code */}
-          <ActionCard
+            <ActionCard
             title="QR Code"
             description="Download and print your menu QR code"
             icon={<QrCode className="w-8 h-8" />}
@@ -191,7 +193,7 @@ export default function DashboardPage() {
           />
 
           {/* Settings */}
-          <ActionCard
+            <ActionCard
             title="Restaurant Settings"
             description="Update your restaurant profile and preferences"
             icon={<Settings className="w-8 h-8" />}
@@ -200,7 +202,7 @@ export default function DashboardPage() {
           />
 
           {/* Subscription */}
-          <ActionCard
+            <ActionCard
             title="Subscription"
             description="Manage your plan and billing"
             icon={<CreditCard className="w-8 h-8" />}
@@ -209,7 +211,7 @@ export default function DashboardPage() {
           />
 
           {/* Customer Feedback */}
-          <ActionCard
+            <ActionCard
             title="Customer Feedback"
             description="View ratings and reviews from your customers"
             icon={<MessageSquare className="w-8 h-8" />}
@@ -218,7 +220,7 @@ export default function DashboardPage() {
           />
 
           {/* Help & Support */}
-          <ActionCard
+            <ActionCard
             title="Help & Support"
             description="Get help or suggest new features to our team"
             icon={<Shield className="w-8 h-8" />}

@@ -1,20 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signInWithEmail } from '@/lib/firebase';
+import { signInWithEmail, logOut } from '@/lib/firebase';
 import { authAPI } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, Mail, Lock } from 'lucide-react';
+import { Shield, ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { requireNoAuth } from '@/lib/routeGuards';
+import { paths } from '@/lib/paths';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { firebaseUser, user, loading: authLoading, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    // If already authenticated as admin, keep them out of the login page
+    if (!authLoading && user && user.role === 'admin') {
+      router.replace(paths.admin.root);
+      return;
+    }
+
+    // If any authenticated user hits this page but isn't an admin, send to dashboard
+    if (!authLoading && firebaseUser && (!user || user.role !== 'admin')) {
+      router.replace(paths.dashboard.root);
+      return;
+    }
+  }, [firebaseUser, user, authLoading, router]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -34,13 +51,14 @@ export default function AdminLoginPage() {
 
       if (userData.role !== 'admin') {
         toast.error('Access denied. Admin privileges required.');
+        await logOut(); // Sign out non-admin users from Firebase
         setLoading(false);
         return;
       }
 
       await refreshUser();
       toast.success('Welcome to Admin Dashboard!');
-      router.push('/admin');
+      router.push(paths.admin.root);
     } catch (error: any) {
       console.error('Admin login error:', error);
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -68,7 +86,7 @@ export default function AdminLoginPage() {
       <div className="relative w-full max-w-md">
         {/* Back Link */}
         <Link
-          href="/"
+          href={paths.home}
           className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -89,12 +107,13 @@ export default function AdminLoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="admin-email" className="block text-sm font-medium text-gray-300 mb-2">
                 Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
+                  id="admin-email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -106,19 +125,29 @@ export default function AdminLoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="admin-password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
-                  type="password"
+                  id="admin-password"
+                  type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="w-full pl-10 pr-10 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 

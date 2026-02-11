@@ -15,6 +15,7 @@ import {
   PieChart as PieIcon,
   Calendar,
 } from 'lucide-react';
+import { paths } from '@/lib/paths';
 import {
   LineChart,
   Line,
@@ -54,7 +55,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'admin')) {
-      router.push('/');
+      router.push(paths.home);
     }
   }, [authLoading, user, router]);
 
@@ -119,7 +120,7 @@ export default function AnalyticsPage() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/admin" className="text-gray-400 hover:text-white">
+              <Link href={paths.admin.root} className="text-gray-400 hover:text-white">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>

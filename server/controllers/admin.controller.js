@@ -4,6 +4,15 @@ import Subscription from "../models/Subscription.js";
 import MenuItem from "../models/MenuItem.js";
 import Category from "../models/Category.js";
 import CustomerFeedback from "../models/CustomerFeedback.js";
+import admin from "../config/firebase-admin.js";
+
+// Utility to escape regex special characters
+const escapeRegex = (string) => {
+  if (typeof string !== "string") {
+    return "";
+  }
+  return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+};
 
 /**
  * Get admin dashboard stats
@@ -16,21 +25,26 @@ export const getStats = async (req, res, next) => {
       totalRestaurants,
       activeRestaurants,
       totalSubscriptions,
-      activeSubscriptions,
+      activeSubscriptionDocs, // Changed to docs for MRR calc
       trialSubscriptions,
       paidSubscriptions,
       totalMenuItems,
       totalViews,
       recentUsers,
       recentRestaurants,
+      recentSubscriptions, // Added for activity feed
     ] = await Promise.all([
       User.countDocuments(),
       Restaurant.countDocuments(),
       Restaurant.countDocuments({ isActive: true }),
       Subscription.countDocuments(),
-      Subscription.countDocuments({ status: { $in: ["active", "trialing"] } }),
-      Subscription.countDocuments({ plan: "trial" }),
-      Subscription.countDocuments({ plan: { $in: ["basic", "pro"] } }),
+      Subscription.find({
+        status: { $in: ["active", "trialing"] },
+      }).select("plan billingCycle status"),
+      Subscription.countDocuments({ plan: { $regex: /^trial$/i } }),
+      Subscription.countDocuments({
+        plan: { $in: [/Premium/i, /basic/i, /pro/i] },
+      }),
       MenuItem.countDocuments(),
       Restaurant.aggregate([
         { $group: { _id: null, total: { $sum: "$menuViewCount" } } },
@@ -43,34 +57,80 @@ export const getStats = async (req, res, next) => {
         .sort("-createdAt")
         .limit(5)
         .select("name slug createdAt menuViewCount"),
+      Subscription.find()
+        .sort("-createdAt")
+        .limit(5)
+        .populate("user", "displayName email")
+        .select("plan status createdAt user"),
     ]);
+
+    // Calculate MRR
+    let mrr = 0;
+    activeSubscriptionDocs.forEach((sub) => {
+      if (sub.status === "active" && sub.plan !== "trial") {
+        if (sub.billingCycle === "yearly") {
+          mrr += 416.66; // 5000 / 12
+        } else {
+          mrr += 499;
+        }
+      }
+    });
+
+    // Construct Recent Activity
+    const activity = [
+      ...recentUsers.map((u) => ({
+        type: "user_signup",
+        message: `New user signed up: ${u.displayName || u.email}`,
+        timestamp: u.createdAt,
+        details: u,
+      })),
+      ...recentRestaurants.map((r) => ({
+        type: "restaurant_created",
+        message: `New restaurant created: ${r.name}`,
+        timestamp: r.createdAt,
+        details: r,
+      })),
+      ...recentSubscriptions.map((s) => ({
+        type: "subscription_started",
+        message: `New ${s.plan} subscription (${s.status})`,
+        timestamp: s.createdAt,
+        details: s,
+      })),
+    ]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 10);
 
     res.json({
       success: true,
       data: {
         users: {
           total: totalUsers,
+          newToday: 0, // Placeholder, implementation specific
+          growth: 0, // Placeholder
         },
         restaurants: {
           total: totalRestaurants,
           active: activeRestaurants,
+          growth: 0,
         },
         subscriptions: {
           total: totalSubscriptions,
-          active: activeSubscriptions,
+          active: activeSubscriptionDocs.length,
+          mrr: Math.round(mrr),
+          growth: 0,
           trial: trialSubscriptions,
           paid: paidSubscriptions,
         },
         menuItems: {
           total: totalMenuItems,
         },
-        views: {
+        menuViews: {
+          // Renamed from views to menuViews for frontend consistency
           total: totalViews[0]?.total || 0,
+          today: 0,
+          growth: 0,
         },
-        recent: {
-          users: recentUsers,
-          restaurants: recentRestaurants,
-        },
+        recentActivity: activity, // Flattened activity feed
       },
     });
   } catch (error) {
@@ -89,9 +149,10 @@ export const getAllRestaurants = async (req, res, next) => {
 
     const filter = {};
     if (search) {
+      const escapedSearch = escapeRegex(search);
       filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { slug: { $regex: search, $options: "i" } },
+        { name: { $regex: escapedSearch, $options: "i" } },
+        { slug: { $regex: escapedSearch, $options: "i" } },
       ];
     }
     if (status === "active") filter.isActive = true;
@@ -159,9 +220,10 @@ export const getAllUsers = async (req, res, next) => {
 
     const filter = {};
     if (search) {
+      const escapedSearch = escapeRegex(search);
       filter.$or = [
-        { email: { $regex: search, $options: "i" } },
-        { displayName: { $regex: search, $options: "i" } },
+        { email: { $regex: escapedSearch, $options: "i" } },
+        { displayName: { $regex: escapedSearch, $options: "i" } },
       ];
     }
     if (role) filter.role = role;
@@ -175,25 +237,44 @@ export const getAllUsers = async (req, res, next) => {
       User.countDocuments(filter),
     ]);
 
-    // Get restaurant and subscription info for each user
-    const usersWithDetails = await Promise.all(
-      users.map(async (user) => {
-        const restaurant = await Restaurant.findOne({ owner: user._id }).select(
-          "name slug isActive menuViewCount",
-        );
-        const subscription = restaurant
-          ? await Subscription.findOne({ restaurant: restaurant._id }).select(
-              "plan status trialEnd",
-            )
-          : null;
+    // Optimized bulk fetching to avoid N+1 queries
+    const userIds = users.map((u) => u._id);
 
-        return {
-          ...user.toObject(),
-          restaurant: restaurant || null,
-          subscription: subscription || null,
-        };
-      }),
-    );
+    // Fetch all restaurants for these users
+    const allRestaurants = await Restaurant.find({
+      owner: { $in: userIds },
+    }).select("name slug isActive menuViewCount owner");
+
+    // Create map for easy lookup
+    const restaurantMap = {};
+    allRestaurants.forEach((r) => {
+      restaurantMap[r.owner.toString()] = r;
+    });
+
+    // Fetch all subscriptions for these restaurants
+    const restaurantIds = allRestaurants.map((r) => r._id);
+    const allSubscriptions = await Subscription.find({
+      restaurant: { $in: restaurantIds },
+    }).select("plan status trialEnd restaurant");
+
+    // Create map for easy lookup
+    const subscriptionMap = {};
+    allSubscriptions.forEach((s) => {
+      subscriptionMap[s.restaurant.toString()] = s;
+    });
+
+    const usersWithDetails = users.map((user) => {
+      const restaurant = restaurantMap[user._id.toString()];
+      const subscription = restaurant
+        ? subscriptionMap[restaurant._id.toString()]
+        : null;
+
+      return {
+        ...user.toObject(),
+        restaurant: restaurant || null,
+        subscription: subscription || null,
+      };
+    });
 
     res.json({
       success: true,
@@ -330,8 +411,19 @@ export const getAnalytics = async (req, res, next) => {
     const subscriptionsByPlan = await Subscription.aggregate([
       {
         $group: {
-          _id: "$plan",
+          _id: { $toLower: "$plan" },
           count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: {
+            $concat: [
+              { $toUpper: { $substr: ["$_id", 0, 1] } },
+              { $substr: ["$_id", 1, -1] },
+            ],
+          },
+          count: 1,
         },
       },
     ]);
@@ -472,8 +564,6 @@ export const deleteRestaurant = async (req, res, next) => {
     next(error);
   }
 };
-
-import admin from "../config/firebase-admin.js";
 
 /**
  * Delete user and their restaurant (admin)

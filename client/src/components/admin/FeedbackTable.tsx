@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
 import { feedbackAPI } from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
@@ -10,16 +8,12 @@ import {
   Bug,
   Lightbulb,
   AlertCircle,
-  Search,
-  Filter,
   CheckCircle,
   XCircle,
   Clock,
-  MoreVertical,
   Trash2,
   ExternalLink,
 } from 'lucide-react';
-import { paths } from '@/lib/paths';
 
 interface Feedback {
   _id: string;
@@ -38,9 +32,7 @@ interface Feedback {
   };
 }
 
-export default function AdminFeedbackPage() {
-  const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+export default function FeedbackTable() {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ status: '', type: '' });
@@ -50,16 +42,8 @@ export default function AdminFeedbackPage() {
   const [adminNote, setAdminNote] = useState('');
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'admin')) {
-      router.push(paths.dashboard.root);
-    }
-  }, [authLoading, user, router]);
-
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      fetchFeedback();
-    }
-  }, [user, filter, page]);
+    fetchFeedback();
+  }, [filter, page]);
 
   const fetchFeedback = async () => {
     setLoading(true);
@@ -143,19 +127,17 @@ export default function AdminFeedbackPage() {
     }
   };
 
-  if (authLoading) return null;
-
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="flex h-[calc(100vh-8rem)] rounded-2xl overflow-hidden border border-gray-700 bg-white">
       {/* Sidebar - List */}
       <div className={`w-full md:w-1/3 border-r border-gray-200 bg-white flex flex-col ${selectedFeedback ? 'hidden md:flex' : ''}`}>
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-bold mb-4">Feedback Inbox</h1>
+          <h2 className="text-xl font-bold mb-4 text-gray-900">Feedback Inbox</h2>
           <div className="flex gap-2">
             <select
               value={filter.type}
               onChange={(e) => setFilter({ ...filter, type: e.target.value })}
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 text-gray-700"
             >
               <option value="">All Types</option>
               <option value="feature_request">Feature Requests</option>
@@ -166,7 +148,7 @@ export default function AdminFeedbackPage() {
             <select
               value={filter.status}
               onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 text-gray-700"
             >
               <option value="">All Status</option>
               <option value="pending">Pending</option>
@@ -220,7 +202,7 @@ export default function AdminFeedbackPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-200 flex justify-between items-center">
+          <div className="p-4 border-t border-gray-200 flex justify-between items-center bg-gray-50">
             <button
               disabled={page === 1}
               onClick={() => setPage(page - 1)}
@@ -243,7 +225,7 @@ export default function AdminFeedbackPage() {
       </div>
 
       {/* Main Content - Detail View */}
-      <div className={`flex-1 flex-col h-screen overflow-hidden ${selectedFeedback ? 'flex' : 'hidden md:flex'}`}>
+      <div className={`flex-1 flex-col h-full overflow-hidden ${selectedFeedback ? 'flex' : 'hidden md:flex'}`}>
         {selectedFeedback ? (
           <>
             {/* Header */}
@@ -333,7 +315,7 @@ export default function AdminFeedbackPage() {
                       <textarea
                         value={adminNote}
                         onChange={(e) => setAdminNote(e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-none"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-none text-gray-900"
                         rows={3}
                         placeholder="Add private notes for admins..."
                       />

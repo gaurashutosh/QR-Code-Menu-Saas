@@ -8,6 +8,7 @@ import { restaurantAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Download, RefreshCw, Copy, ExternalLink, QrCode } from 'lucide-react';
+import { paths } from '@/lib/paths';
 
 export default function QRCodePage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function QRCodePage() {
 
   useEffect(() => {
     if (!authLoading && !restaurant) {
-      router.push('/dashboard');
+      router.push(paths.dashboard.root);
     }
   }, [authLoading, restaurant, router]);
 
@@ -88,7 +89,7 @@ export default function QRCodePage() {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
+            <Link href={paths.dashboard.root} className="text-gray-500 hover:text-gray-700">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>

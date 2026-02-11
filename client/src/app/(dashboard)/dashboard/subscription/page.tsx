@@ -18,67 +18,39 @@ import {
   Download,
 } from 'lucide-react';
 import { ReceiptTemplate, generateReceiptPDF } from '@/components/dashboard/ReceiptPDF';
+import { paths } from '@/lib/paths';
 
 const PLANS = [
   {
-    id: 'basic_monthly',
-    name: 'Basic',
-    price: 199,
+    id: 'monthly',
+    name: 'Premium',
+    price: 499,
     period: 'month',
     features: [
       'Unlimited menu items',
-      'QR code generation',
-      'Mobile-friendly menu',
-      'Basic analytics',
-      'Email support',
+      'Custom branding & logos',
+      'Direct WhatsApp orders',
+      'Advanced analytics',
+      'No watermark',
+      'Priority support',
     ],
     recommended: false,
   },
   {
-    id: 'pro_monthly',
-    name: 'Pro',
-    price: 299,
-    period: 'month',
-    features: [
-      'Everything in Basic',
-      'Custom branding',
-      'Advanced analytics',
-      'Multiple QR designs',
-      'Priority support',
-      'No watermark',
-    ],
-    recommended: true,
-  },
-  {
-    id: 'basic_yearly',
-    name: 'Basic',
-    price: 1990,
+    id: 'yearly',
+    name: 'Premium',
+    price: 5000,
     period: 'year',
-    monthlyEquivalent: 166,
-    savings: '17%',
+    monthlyEquivalent: 416,
+    savings: '16%',
     features: [
       'Unlimited menu items',
-      'QR code generation',
-      'Mobile-friendly menu',
-      'Basic analytics',
-      'Email support',
-    ],
-    recommended: false,
-  },
-  {
-    id: 'pro_yearly',
-    name: 'Pro',
-    price: 2990,
-    period: 'year',
-    monthlyEquivalent: 249,
-    savings: '17%',
-    features: [
-      'Everything in Basic',
-      'Custom branding',
+      'Custom branding & logos',
+      'Direct WhatsApp orders',
       'Advanced analytics',
-      'Multiple QR designs',
-      'Priority support',
       'No watermark',
+      'Priority support',
+      '2 Months FREE included',
     ],
     recommended: true,
   },
@@ -99,7 +71,6 @@ export default function SubscriptionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, restaurant, subscription, refreshUser, loading: authLoading } = useAuth();
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [loading, setLoading] = useState<string | null>(null);
   const [history, setHistory] = useState<PaymentHistory[]>([]);
   const [fetchingHistory, setFetchingHistory] = useState(false);
@@ -112,10 +83,10 @@ export default function SubscriptionPage() {
     if (success === 'true') {
       toast.success('Subscription activated! Welcome aboard 🎉');
       refreshUser();
-      router.replace('/dashboard/subscription');
+      router.replace(paths.dashboard.subscription);
     } else if (canceled === 'true') {
       toast.error('Payment was canceled');
-      router.replace('/dashboard/subscription');
+      router.replace(paths.dashboard.subscription);
     }
   }, [searchParams, refreshUser, router]);
 
@@ -139,10 +110,16 @@ export default function SubscriptionPage() {
   const handleDownload = async (item: PaymentHistory) => {
     if (!user || !restaurant) return;
     
+    // Find the correct description based on the plan name
+    const planDesc = item.planName.toLowerCase() === 'premium' 
+      ? 'Includes unlimited menu items, premium templates, advanced analytics, and priority support.'
+      : 'Basic plan with core features.';
+
     await generateReceiptPDF({
       invoiceNumber: item.number,
       date: item.date,
       planName: item.planName,
+      planDescription: planDesc,
       amount: item.amount,
       currency: item.currency,
       userName: user.displayName || 'Customer',
@@ -187,14 +164,15 @@ export default function SubscriptionPage() {
     }
   };
 
-  const filteredPlans = PLANS.filter((plan) =>
-    billingPeriod === 'monthly' ? plan.period === 'month' : plan.period === 'year'
-  );
+
 
   const isCurrentPlan = (planId: string) => {
-    if (!subscription) return false;
-    const currentPlan = subscription.plan?.toLowerCase();
-    return planId.toLowerCase().startsWith(currentPlan);
+    if (!subscription || !subscription.isActive) return false;
+    // Map 'month' from Stripe to 'monthly' and 'year' to 'yearly'
+    const currentBillingCycle = subscription.billingCycle === 'month' ? 'monthly' : 
+                               subscription.billingCycle === 'year' ? 'yearly' : 
+                               subscription.billingCycle;
+    return planId.toLowerCase() === currentBillingCycle?.toLowerCase();
   };
 
   if (authLoading) {
@@ -215,6 +193,9 @@ export default function SubscriptionPage() {
             invoiceNumber: item.number,
             date: item.date,
             planName: item.planName,
+            planDescription: item.planName.toLowerCase() === 'premium' 
+              ? 'Includes unlimited menu items, premium templates, advanced analytics, and priority support.'
+              : 'Basic plan with core features.',
             amount: item.amount,
             currency: item.currency,
             userName: user?.displayName || 'Customer',
@@ -232,7 +213,7 @@ export default function SubscriptionPage() {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
+            <Link href={paths.dashboard.root} className="text-gray-500 hover:text-gray-700">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
@@ -353,38 +334,10 @@ export default function SubscriptionPage() {
           </div>
         )}
 
-        {/* Billing Period Toggle */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-white rounded-full p-1 shadow-sm inline-flex">
-            <button
-              onClick={() => setBillingPeriod('monthly')}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-                billingPeriod === 'monthly'
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingPeriod('yearly')}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-                billingPeriod === 'yearly'
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Yearly
-              <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                Save 17%
-              </span>
-            </button>
-          </div>
-        </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {filteredPlans.map((plan) => (
+        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {PLANS.map((plan) => (
             <div
               key={plan.id}
               className={`bg-white rounded-2xl p-6 relative ${
@@ -437,10 +390,10 @@ export default function SubscriptionPage() {
                   variant={plan.recommended ? 'primary' : 'outline'}
                   onClick={() => handleSubscribe(plan.id)}
                   loading={loading === plan.id}
-                  disabled={subscription?.plan !== 'trial' && subscription?.isActive}
+                  disabled={subscription?.isActive && subscription?.plan !== 'trial'}
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
-                  {subscription?.plan !== 'trial' && subscription?.isActive 
+                  {subscription?.isActive && subscription?.plan !== 'trial' 
                     ? 'Subscribed' 
                     : subscription?.plan === 'trial' 
                     ? 'Start Plan' 

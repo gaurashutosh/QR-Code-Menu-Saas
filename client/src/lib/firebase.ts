@@ -8,6 +8,7 @@ import {
   signInWithPopup,
   sendPasswordResetEmail,
   onAuthStateChanged,
+  updateProfile,
   User as FirebaseUser,
 } from 'firebase/auth';
 

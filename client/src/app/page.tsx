@@ -1,7 +1,13 @@
+'use client';
+
 import Link from 'next/link';
-import { QrCode, Utensils, Smartphone, Zap, CreditCard, BarChart3 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { paths } from '@/lib/paths';
+import { QrCode, Utensils, Smartphone, Zap, CreditCard, BarChart3, LayoutDashboard, ShieldCheck } from 'lucide-react';
 
 export default function HomePage() {
+  const { user, loading } = useAuth();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">
       {/* Navigation */}
@@ -14,25 +20,49 @@ export default function HomePage() {
               </div>
               <span className="text-xl font-bold gradient-text">QR Menu</span>
             </div>
+            
             <div className="flex items-center gap-4">
-              <Link
-                href="/admin/login"
-                className="text-gray-500 hover:text-gray-700 text-sm transition-colors"
-              >
-                Admin
-              </Link>
-              <Link
-                href="/login"
-                className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
-              >
-                Log in
-              </Link>
-              <Link
-                href="/signup"
-                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-medium hover:from-orange-600 hover:to-red-600 transition-all"
-              >
-                Get Started
-              </Link>
+              {!loading && user ? (
+                <>
+                  {user.role === 'admin' && (
+                    <Link
+                      href={paths.admin.root}
+                      className="flex items-center gap-2 text-gray-700 hover:text-orange-600 font-medium transition-colors"
+                    >
+                      <ShieldCheck className="w-5 h-5" />
+                      Admin
+                    </Link>
+                  )}
+                  <Link
+                    href={paths.dashboard.root}
+                    className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-medium hover:from-orange-600 hover:to-red-600 transition-all shadow-md hover:shadow-lg"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href={paths.admin.login}
+                    className="text-gray-500 hover:text-gray-700 text-sm transition-colors"
+                  >
+                    Admin
+                  </Link>
+                  <Link
+                    href={paths.login}
+                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                  >
+                    Log in
+                  </Link>
+                  <Link
+                    href={paths.signup}
+                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-medium hover:from-orange-600 hover:to-red-600 transition-all"
+                  >
+                    Get Started
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -55,10 +85,10 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/signup"
+              href={!loading && user ? paths.dashboard.root : paths.signup}
               className="px-8 py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold text-lg hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
             >
-              Start Free Trial →
+              {!loading && user ? "Go to Dashboard →" : "Start Free Trial →"}
             </Link>
             <Link
               href="/menu/demo"
@@ -111,7 +141,7 @@ export default function HomePage() {
             <FeatureCard
               icon={<CreditCard className="w-8 h-8" />}
               title="Simple Pricing"
-              description="Affordable monthly plans starting at ₹199. No hidden fees, cancel anytime."
+              description="Affordable premium plans starting at ₹499. No hidden fees, cancel anytime."
             />
           </div>
         </div>
@@ -131,28 +161,30 @@ export default function HomePage() {
           
           <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <PricingCard
-              title="Basic"
-              monthlyPrice="₹199"
-              yearlyPrice="₹1,999"
+              title="Premium Monthly"
+              monthlyPrice="₹499"
+              yearlyPrice="₹5,000"
               features={[
-                'Up to 50 menu items',
-                'QR code generation',
-                'Basic analytics',
-                'Email support',
+                'Unlimited menu items',
+                'Custom branding & logos',
+                'Advanced analytics',
+                'No watermark',
+                'Priority support',
+                'WhatsApp ordering',
               ]}
             />
             <PricingCard
-              title="Pro"
-              monthlyPrice="₹299"
-              yearlyPrice="₹2,999"
+              title="Premium Yearly"
+              monthlyPrice="₹5,000"
+              yearlyPrice="₹5,000"
               popular
               features={[
-                'Unlimited menu items',
-                'Custom branding',
-                'Advanced analytics',
-                'Priority support',
-                'Multiple categories',
-                'Item images',
+                'Everything in Monthly',
+                '2 Months FREE included',
+                'Priority setup assistance',
+                'Custom QR designs',
+                'Advanced reporting',
+                'Best value for money',
               ]}
             />
           </div>
@@ -169,10 +201,10 @@ export default function HomePage() {
             Join hundreds of restaurants already using QR Menu. Start your free trial today.
           </p>
           <Link
-            href="/signup"
+            href={!loading && user ? paths.dashboard.root : paths.signup}
             className="inline-block px-8 py-4 bg-white text-orange-600 rounded-xl font-semibold text-lg hover:bg-orange-50 transition-all shadow-lg"
           >
-            Start Your Free Trial →
+            {!loading && user ? "Go to Dashboard →" : "Start Your Free Trial →"}
           </Link>
         </div>
       </section>
@@ -237,9 +269,11 @@ function PricingCard({
       <h3 className={`text-2xl font-bold mb-2 ${popular ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
       <div className="mb-6">
         <span className={`text-4xl font-bold ${popular ? 'text-white' : 'text-gray-900'}`}>{monthlyPrice}</span>
-        <span className={popular ? 'text-orange-100' : 'text-gray-500'}>/month</span>
+        <span className={popular ? 'text-orange-100' : 'text-gray-500'}>
+          {title.includes('Yearly') ? '/year' : '/month'}
+        </span>
         <p className={`text-sm mt-1 ${popular ? 'text-orange-100' : 'text-gray-500'}`}>
-          or {yearlyPrice}/year (save 2 months)
+          {title.includes('Yearly') ? 'Save 16% annually' : `or ${yearlyPrice}/year (save 16%)`}
         </p>
       </div>
       <ul className="space-y-3 mb-8">

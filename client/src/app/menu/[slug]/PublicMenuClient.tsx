@@ -168,16 +168,32 @@ export default function PublicMenuClient({ data, slug }: PublicMenuClientProps) 
                 </button>
               )}
             </div>
-            <button
+            <button 
+              type="button"
               onClick={() => setShowVegOnly(!showVegOnly)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${
-                showVegOnly
-                  ? 'bg-green-50 border-green-500 text-green-700'
-                  : 'border-gray-200 text-gray-600'
-              }`}
+              aria-pressed={showVegOnly}
+              aria-label="Filter by Veg Only"
+              className="flex items-center gap-3 cursor-pointer select-none focus:outline-none group"
             >
-              <Leaf className="w-5 h-5" />
-              <span className="hidden sm:inline">Veg</span>
+              <span className={`text-sm font-medium transition-colors duration-300 ${
+                showVegOnly ? 'text-green-700' : 'text-gray-500 group-hover:text-gray-700'
+              }`}>
+                Veg Only
+              </span>
+              <div className={`
+                relative w-14 h-8 rounded-full transition-colors duration-300 ease-in-out
+                ${showVegOnly ? 'bg-green-500' : 'bg-gray-200 group-hover:bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm 
+                  transform transition-transform duration-300 ease-in-out flex items-center justify-center
+                  ${showVegOnly ? 'translate-x-6' : 'translate-x-0'}
+                `}>
+                  <Leaf className={`w-3.5 h-3.5 transition-colors duration-300 ${
+                    showVegOnly ? 'text-green-600' : 'text-gray-400'
+                  }`} />
+                </div>
+              </div>
             </button>
           </div>
         </div>
