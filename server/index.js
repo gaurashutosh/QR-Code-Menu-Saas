@@ -24,6 +24,9 @@ import { apiLimiter, authLimiter } from "./middleware/rateLimit.middleware.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy for rate limiting behind Render/load balancers
+app.set("trust proxy", 1);
+
 // Security middleware
 app.use(helmet());
 
