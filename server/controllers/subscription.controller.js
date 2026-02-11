@@ -77,8 +77,8 @@ export const createCheckoutSession = async (req, res, next) => {
         },
       ],
       mode: "subscription",
-      success_url: `${process.env.CLIENT_URL}/dashboard/subscription?success=true`,
-      cancel_url: `${process.env.CLIENT_URL}/dashboard/subscription?canceled=true`,
+      success_url: `${process.env.CLIENT_URL}/dashboard?tab=subscription&success=true`,
+      cancel_url: `${process.env.CLIENT_URL}/dashboard?tab=subscription&canceled=true`,
       metadata: {
         userId: req.user._id.toString(),
         restaurantId: restaurant._id.toString(),
