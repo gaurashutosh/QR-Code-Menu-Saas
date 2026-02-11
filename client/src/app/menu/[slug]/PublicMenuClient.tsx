@@ -549,6 +549,7 @@ function FeedbackForm({ restaurantId }: { restaurantId: string }) {
           type="text"
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
+          autoComplete="name"
           className="w-full px-4 py-2.5 bg-white dark:bg-zinc-950 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all text-sm dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
           placeholder="Name (Optional)"
           maxLength={50}
@@ -557,6 +558,7 @@ function FeedbackForm({ restaurantId }: { restaurantId: string }) {
           type="tel"
           value={customerPhone}
           onChange={(e) => setCustomerPhone(e.target.value)}
+          autoComplete="tel"
           className="w-full px-4 py-2.5 bg-white dark:bg-zinc-950 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all text-sm dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
           placeholder="Phone (Optional)"
           maxLength={20}

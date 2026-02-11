@@ -1,10 +1,11 @@
 import axios from 'axios';
 import { getIdToken } from './firebase';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+const FINAL_API_URL = API_URL.endsWith('/api') ? API_URL : `${API_URL}/api`;
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: FINAL_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
