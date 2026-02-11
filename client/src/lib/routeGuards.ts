@@ -7,6 +7,7 @@ interface BaseGuardContext {
   userRole?: string | null;
   restaurantId?: string | null;
   isLoading: boolean;
+  isInitialized: boolean;
 }
 
 interface GuardOptions {
@@ -18,8 +19,8 @@ export function requireAuth(
   router: AppRouterInstance,
   options: GuardOptions = {}
 ) {
-  const { firebaseUser, isLoading } = ctx;
-  if (isLoading) return;
+  const { firebaseUser, isLoading, isInitialized } = ctx;
+  if (isLoading || !isInitialized) return;
 
   if (!firebaseUser) {
     router.replace(options.redirectTo || paths.login);
@@ -31,8 +32,8 @@ export function requireAdmin(
   router: AppRouterInstance,
   options: GuardOptions = {}
 ) {
-  const { firebaseUser, userRole, isLoading } = ctx;
-  if (isLoading) return;
+  const { firebaseUser, userRole, isLoading, isInitialized } = ctx;
+  if (isLoading || !isInitialized) return;
 
   if (!firebaseUser || userRole !== 'admin') {
     router.replace(options.redirectTo || paths.admin.login);
@@ -44,8 +45,8 @@ export function requireNoAuth(
   router: AppRouterInstance,
   options: GuardOptions = {}
 ) {
-  const { firebaseUser, isLoading } = ctx;
-  if (isLoading) return;
+  const { firebaseUser, isLoading, isInitialized } = ctx;
+  if (isLoading || !isInitialized) return;
 
   if (firebaseUser) {
     router.replace(options.redirectTo || paths.dashboard.root);

@@ -2,6 +2,9 @@ export const paths = {
   home: '/' as const,
   login: '/login' as const,
   signup: '/signup' as const,
+  forgotPassword: '/forgot-password' as const,
+  terms: '/terms' as const,
+  privacy: '/privacy' as const,
 
   dashboard: {
     root: '/dashboard' as const,

@@ -40,6 +40,10 @@ interface AuthContextType {
    * Use this to avoid redirect flicker while Firebase initializes.
    */
   loading: boolean;
+  /**
+   * True once the initial authentication check (Firebase + Profile) has completed.
+   */
+  isInitialized: boolean;
   error: string | null;
   /**
    * Convenience booleans derived from the raw auth state.
@@ -58,6 +62,7 @@ const AuthContext = createContext<AuthContextType>({
   restaurant: null,
   subscription: null,
   loading: true,
+  isInitialized: false,
   error: null,
   isAuthenticated: false,
   isAdmin: false,
@@ -74,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserData = async () => {
@@ -97,18 +103,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let loadingTimeout: NodeJS.Timeout;
     
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setFirebaseUser(fbUser);
+      
       try {
-        setFirebaseUser(fbUser);
-        
         if (fbUser) {
+          setLoading(true);
           await fetchUserData();
         } else {
           setUser(null);
           setRestaurant(null);
           setSubscription(null);
         }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
       } finally {
         setLoading(false);
+        setIsInitialized(true);
         clearTimeout(loadingTimeout);
       }
     });
@@ -150,6 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         restaurant,
         subscription,
         loading,
+        isInitialized,
         error,
         isAuthenticated,
         isAdmin,

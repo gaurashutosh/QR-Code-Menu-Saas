@@ -15,23 +15,26 @@ import { paths } from '@/lib/paths';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { firebaseUser, user, loading: authLoading, refreshUser } = useAuth();
+  const { firebaseUser, user, loading: authLoading, isInitialized, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    // Wait for initialization before making redirect decisions
+    if (!isInitialized || authLoading) return;
+
     // If already authenticated as admin, keep them out of the login page
-    if (!authLoading && user && user.role === 'admin') {
+    if (user && user.role === 'admin') {
       router.replace(paths.admin.root);
       return;
     }
 
     // If any authenticated user hits this page but isn't an admin, send to dashboard
-    if (!authLoading && firebaseUser && (!user || user.role !== 'admin')) {
+    if (firebaseUser && (!user || user.role !== 'admin')) {
       router.replace(paths.dashboard.root);
       return;
     }
-  }, [firebaseUser, user, authLoading, router]);
+  }, [firebaseUser, user, authLoading, isInitialized, router]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',

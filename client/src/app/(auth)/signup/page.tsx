@@ -15,7 +15,7 @@ import { paths } from '@/lib/paths';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { firebaseUser, loading: authLoading } = useAuth();
+  const { firebaseUser, loading: authLoading, isInitialized } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,11 +26,11 @@ export default function SignupPage() {
 
   useEffect(() => {
     requireNoAuth(
-      { firebaseUser, isLoading: authLoading },
+      { firebaseUser, isLoading: authLoading, isInitialized },
       router,
       { redirectTo: paths.dashboard.root }
     );
-  }, [firebaseUser, authLoading, router]);
+  }, [firebaseUser, authLoading, isInitialized, router]);
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();

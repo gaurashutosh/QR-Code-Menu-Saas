@@ -19,17 +19,16 @@ import RestaurantSetup from '@/components/dashboard/RestaurantSetup';
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, firebaseUser, restaurant, loading, isRestaurantOnboarded, refreshUser, error: authError } = useAuth();
+  const { user, firebaseUser, restaurant, loading, isInitialized, isRestaurantOnboarded, refreshUser, error: authError } = useAuth();
   const currentTab = searchParams.get('tab') || 'overview';
 
   useEffect(() => {
     // Only redirect to login if we are definitely not logged in via Firebase.
-    // If we have a firebaseUser but no profile (user is null), we might have a server error.
-    // In that case, we show an error message instead of redirecting to avoid a loop.
-    if (!loading && !firebaseUser) {
+    // We wait for isInitialized to be true to ensure Firebase check is complete.
+    if (isInitialized && !loading && !firebaseUser) {
       router.replace(paths.login);
     }
-  }, [loading, firebaseUser, router]);
+  }, [isInitialized, loading, firebaseUser, router]);
 
   // Handle redirect to setup if not onboarded
   useEffect(() => {

@@ -60,4 +60,8 @@ pids
 coverage/
 .nyc_output
 
+.agent
+.agents
+.cursor
+
 # End of .gitignore

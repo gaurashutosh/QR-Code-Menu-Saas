@@ -30,11 +30,10 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Note: We remove the hard redirect to /login here to prevent loops.
+    // Auth status is now managed by AuthContext and route guards.
     if (error.response?.status === 401) {
-      // Token expired or invalid
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
+      console.warn('API 401 Unauthorized - Auth session may have expired');
     }
     return Promise.reject(error);
   }

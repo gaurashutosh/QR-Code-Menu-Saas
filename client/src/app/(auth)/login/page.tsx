@@ -14,7 +14,7 @@ import { paths } from '@/lib/paths';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { firebaseUser, loading: authLoading } = useAuth();
+  const { firebaseUser, loading: authLoading, isInitialized } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,11 +23,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     requireNoAuth(
-      { firebaseUser, isLoading: authLoading },
+      { firebaseUser, isLoading: authLoading, isInitialized },
       router,
       { redirectTo: paths.dashboard.root }
     );
-  }, [firebaseUser, authLoading, router]);
+  }, [firebaseUser, authLoading, isInitialized, router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
