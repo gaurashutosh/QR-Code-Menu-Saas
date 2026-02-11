@@ -13,6 +13,7 @@ import RestaurantSettings from '@/components/dashboard/RestaurantSettings';
 import SubscriptionManagement from '@/components/dashboard/SubscriptionManagement';
 import CustomerFeedback from '@/components/dashboard/CustomerFeedback';
 import SupportFeedback from '@/components/dashboard/SupportFeedback';
+import { Button } from '@/components/ui/Button';
 import RestaurantSetup from '@/components/dashboard/RestaurantSetup';
 
 function DashboardContent() {
