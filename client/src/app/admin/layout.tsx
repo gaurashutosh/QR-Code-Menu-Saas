@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { paths } from '@/lib/paths';
 
@@ -13,13 +13,28 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { isAdmin, loading } = useAuth();
   const router = useRouter();
 
+  const pathname = usePathname();
+  const isLoginPage = pathname === paths.admin.login;
+
   useEffect(() => {
-    if (loading) return;
+    if (loading || isLoginPage) return;
 
     if (!isAdmin) {
       router.replace(paths.admin.login);
     }
-  }, [isAdmin, loading, router]);
+  }, [isAdmin, loading, router, isLoginPage]);
+
+  // Fallback timeout in case loading never completes
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.error('Auth loading took too long, redirecting...');
+        router.replace(paths.admin.login);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading, router]);
 
   if (loading) {
     return (
@@ -29,7 +44,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !isLoginPage) {
     return null;
   }
 

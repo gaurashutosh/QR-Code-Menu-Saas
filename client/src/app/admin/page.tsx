@@ -35,10 +35,24 @@ export default function AdminPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'admin')) {
+    if (authLoading) return;
+    
+    if (!user || user.role !== 'admin') {
       router.push(paths.admin.login);
     }
   }, [authLoading, user, router]);
+
+  // Fallback: redirect after timeout if loading doesn't complete
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (authLoading) {
+        console.error('Admin auth loading timeout');
+        router.push(paths.admin.login);
+      }
+    }, 12000); // 12 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [authLoading, router]);
 
   const handleLogout = async () => {
     try {

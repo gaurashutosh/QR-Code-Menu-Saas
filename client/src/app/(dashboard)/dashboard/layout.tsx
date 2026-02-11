@@ -4,6 +4,7 @@ import { ReactNode, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { paths } from '@/lib/paths';
+import DashboardShell from '@/components/dashboard/DashboardShell';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -42,6 +43,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <DashboardShell>
+      {children}
+    </DashboardShell>
+  );
 }
 

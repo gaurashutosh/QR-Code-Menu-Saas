@@ -5,13 +5,13 @@ export const paths = {
 
   dashboard: {
     root: '/dashboard' as const,
-    menu: '/dashboard/menu' as const,
-    qr: '/dashboard/qr' as const,
-    settings: '/dashboard/settings' as const,
-    setup: '/dashboard/setup' as const,
-    subscription: '/dashboard/subscription' as const,
-    feedback: '/dashboard/feedback' as const,
-    customerFeedback: '/dashboard/customer-feedback' as const,
+    menu: '/dashboard?tab=menu' as const,
+    qr: '/dashboard?tab=qr' as const,
+    settings: '/dashboard?tab=settings' as const,
+    setup: '/dashboard?tab=setup' as const,
+    subscription: '/dashboard?tab=subscription' as const,
+    feedback: '/dashboard?tab=feedback' as const,
+    customerFeedback: '/dashboard?tab=customer-feedback' as const,
   },
 
   admin: {

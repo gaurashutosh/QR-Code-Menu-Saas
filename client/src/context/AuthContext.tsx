@@ -87,25 +87,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       console.error('Error fetching user data:', err);
       setError(err.message);
+      setUser(null);
+      setRestaurant(null);
+      setSubscription(null);
     }
   };
 
   useEffect(() => {
+    let loadingTimeout: NodeJS.Timeout;
+    
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
-      
-      if (fbUser) {
-        await fetchUserData();
-      } else {
-        setUser(null);
-        setRestaurant(null);
-        setSubscription(null);
+      try {
+        setFirebaseUser(fbUser);
+        
+        if (fbUser) {
+          await fetchUserData();
+        } else {
+          setUser(null);
+          setRestaurant(null);
+          setSubscription(null);
+        }
+      } finally {
+        setLoading(false);
+        clearTimeout(loadingTimeout);
       }
-      
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Fallback timeout: ensure loading is set to false within 15 seconds
+    loadingTimeout = setTimeout(() => {
+      console.warn('Auth initialization timeout - setting loading to false');
+      setLoading(false);
+    }, 15000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(loadingTimeout);
+    };
   }, []);
 
   const handleSignOut = async () => {
