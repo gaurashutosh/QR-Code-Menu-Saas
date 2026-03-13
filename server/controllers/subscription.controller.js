@@ -109,6 +109,7 @@ export const handleWebhook = async (req, res) => {
       sig,
       process.env.STRIPE_WEBHOOK_SECRET,
     );
+    console.log(`🔔 Webhook received: ${event.type} [${event.id}]`);
   } catch (err) {
     console.error("Webhook signature verification failed:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -144,31 +145,43 @@ export const handleWebhook = async (req, res) => {
 async function handleCheckoutComplete(session) {
   const { userId, restaurantId, plan } = session.metadata;
 
+  console.log(
+    `🏁 Completing checkout for user ${userId}, restaurant ${restaurantId}`,
+  );
+
   // Get subscription details from Stripe
   const stripeSubscription = await stripe.subscriptions.retrieve(
     session.subscription,
   );
 
+  console.log(
+    `📦 Stripe subscription retrieved: ${stripeSubscription.id} (Status: ${stripeSubscription.status})`,
+  );
+
   // Update or create subscription in database
-  await Subscription.findOneAndUpdate(
+  const updatedSub = await Subscription.findOneAndUpdate(
     { restaurant: restaurantId },
     {
       user: userId,
       stripeSubscriptionId: session.subscription,
       stripeCustomerId: session.customer,
       stripePriceId: stripeSubscription.items.data[0].price.id,
-      plan: plan,
+      plan: plan || "Premium",
       billingCycle:
         stripeSubscription.items.data[0].price.recurring.interval === "year"
           ? "yearly"
           : "monthly",
-      status: "active",
+      status: stripeSubscription.status === "active" ? "active" : "trialing",
       currentPeriodStart: new Date(
         stripeSubscription.current_period_start * 1000,
       ),
       currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
     },
     { upsert: true, new: true },
+  );
+
+  console.log(
+    `💾 Local subscription updated: ${updatedSub._id} (Plan: ${updatedSub.plan})`,
   );
 }
 
@@ -327,25 +340,68 @@ export const reconcileSubscription = async (req, res, next) => {
       });
     }
 
-    const subscription = await Subscription.findOne({
+    let subscription = await Subscription.findOne({
       restaurant: restaurant._id,
     });
 
     if (!subscription) {
       return res.status(404).json({
         success: false,
-        message: "No subscription found",
+        message: "No subscription session found",
       });
     }
 
+    console.log(
+      `🔍 Reconciling subscription for ${restaurant.name} [Local Plan: ${subscription.plan}]`,
+    );
+
     let updated = false;
 
-    // Self-healing: If there's a Stripe ID but plan is trial, it means we missed the update
-    if (
+    // Proactive Sync: If local is trial but we have a Stripe Customer ID, check Stripe directly
+    if (subscription.plan === "trial" && subscription.stripeCustomerId) {
+      console.log(
+        `⚡ Plan mismatch detected. Fetching active subscriptions from Stripe for customer: ${subscription.stripeCustomerId}`,
+      );
+
+      const stripeSubscriptions = await stripe.subscriptions.list({
+        customer: subscription.stripeCustomerId,
+        status: "active",
+        limit: 1,
+      });
+
+      if (stripeSubscriptions.data.length > 0) {
+        const sub = stripeSubscriptions.data[0];
+        console.log(
+          `✨ Found active Stripe subscription: ${sub.id}. Syncing to DB...`,
+        );
+
+        subscription.plan = "Premium";
+        subscription.status = "active";
+        subscription.stripeSubscriptionId = sub.id;
+        subscription.stripePriceId = sub.items.data[0].price.id;
+        subscription.currentPeriodEnd = new Date(sub.current_period_end * 1000);
+        subscription.billingCycle =
+          sub.items.data[0].price.recurring.interval === "year"
+            ? "yearly"
+            : "monthly";
+
+        await subscription.save();
+        updated = true;
+      } else {
+        console.log(
+          "📭 No active subscriptions found on Stripe for this customer.",
+        );
+      }
+    }
+    // Fallback: If stripeSubscriptionId exists but plan is trial (legacy reconcile logic)
+    else if (
       subscription.plan === "trial" &&
       subscription.stripeSubscriptionId &&
       subscription.status === "active"
     ) {
+      console.log(
+        "🩹 Legacy healing: stripeSubscriptionId exists, promoting to Premium",
+      );
       subscription.plan = "Premium";
       await subscription.save();
       updated = true;
@@ -353,13 +409,16 @@ export const reconcileSubscription = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: updated ? "Subscription reconciled" : "No changes needed",
+      message: updated
+        ? "Subscription reconciled successfully"
+        : "No changes needed",
       data: {
         plan: subscription.plan,
         status: subscription.status,
       },
     });
   } catch (error) {
+    console.error("❌ Reconciliation failed:", error);
     next(error);
   }
 };

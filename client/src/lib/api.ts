@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getIdToken } from './firebase';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/$/, '');
-const FINAL_API_URL = API_URL.endsWith('/api') ? API_URL : `${API_URL}/api`;
+const FINAL_API_URL = (API_URL.endsWith('/api') ? API_URL : `${API_URL}/api`).replace(/\/$/, '') + '/';
 
 const api = axios.create({
   baseURL: FINAL_API_URL,
@@ -13,8 +13,9 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use(async (config) => {
-  // Fix: Strip leading slash from URL to ensure it joins correctly with baseURL's /api path
-  // If we don't do this, Axios treats /auth/me as relative to origin, stripping the /api prefix.
+  // Ensure we don't have leading slashes in relative URLs when using a baseURL that ends in a slash.
+  // Axios will combine "http://base.com/api/" + "/path" into "http://base.com/path" (stripping the /api/).
+  // But "http://base.com/api/" + "path" becomes "http://base.com/api/path".
   if (config.url?.startsWith('/')) {
     config.url = config.url.substring(1);
   }
@@ -85,6 +86,7 @@ export const subscriptionAPI = {
     api.post('/subscription/create-checkout', { plan }),
   cancel: () => api.post('/subscription/cancel'),
   getHistory: () => api.get('/subscription/history'),
+  reconcile: () => api.post('/subscription/reconcile'),
 };
 
 // Public API (no auth required)

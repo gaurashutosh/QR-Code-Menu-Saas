@@ -90,19 +90,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRestaurant(restaurant);
       setSubscription(subscription);
       setError(null);
+      return true;
     } catch (err: any) {
-      console.error('Error fetching user data:', err);
-      setError(err.message || 'Failed to connect to the server');
+      // Don't log 401 as an error - it just means the session might be stale or not yet valid
+      if (err.response?.status !== 401) {
+        console.error('Error fetching user data:', err);
+        setError(err.message || 'Failed to connect to the server');
+      }
       setUser(null);
       setRestaurant(null);
       setSubscription(null);
+      return false;
     }
   };
 
   useEffect(() => {
     let loadingTimeout: NodeJS.Timeout;
+    let isMounted = true;
     
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (!isMounted) return;
+      
       setFirebaseUser(fbUser);
       
       try {
@@ -117,19 +125,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error('Auth initialization error:', err);
       } finally {
-        setLoading(false);
-        setIsInitialized(true);
-        clearTimeout(loadingTimeout);
+        if (isMounted) {
+          setLoading(false);
+          setIsInitialized(true);
+          clearTimeout(loadingTimeout);
+        }
       }
     });
 
     // Fallback timeout: ensure loading is set to false within 15 seconds
     loadingTimeout = setTimeout(() => {
-      console.warn('Auth initialization timeout - setting loading to false');
-      setLoading(false);
+      if (isMounted) {
+        console.warn('Auth initialization timeout - setting loading to false');
+        setLoading(false);
+        setIsInitialized(true);
+      }
     }, 15000);
 
     return () => {
+      isMounted = false;
       unsubscribe();
       clearTimeout(loadingTimeout);
     };

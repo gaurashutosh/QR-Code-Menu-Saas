@@ -79,8 +79,20 @@ export default function SubscriptionManagement() {
     const canceled = searchParams.get('canceled');
 
     if (success === 'true') {
-      toast.success('Subscription activated! Welcome aboard 🎉');
-      refreshUser();
+      const reconcile = async () => {
+        const loadingToast = toast.loading('Syncing subscription status...');
+        try {
+          await subscriptionAPI.reconcile();
+          toast.success('Subscription activated! Welcome aboard 🎉', { id: loadingToast });
+          refreshUser();
+        } catch (error) {
+          console.error('Auto-reconcile failed:', error);
+          toast.error('Sync delayed, but your payment was successful. Please click "Sync with Stripe" if not updated.', { id: loadingToast });
+        }
+      };
+      
+      reconcile();
+      
       // Clean up URL params
       const newUrl = window.location.pathname;
       router.replace(newUrl);
@@ -90,6 +102,25 @@ export default function SubscriptionManagement() {
       router.replace(newUrl);
     }
   }, [searchParams, refreshUser, router]);
+
+  const [syncing, setSyncing] = useState(false);
+  const handleSync = async () => {
+    setSyncing(true);
+    const loadingToast = toast.loading('Syncing with Stripe...');
+    try {
+      const response = await subscriptionAPI.reconcile();
+      if (response.data.message.includes('success')) {
+        toast.success('Status synced! Your plan is up to date.', { id: loadingToast });
+        refreshUser();
+      } else {
+        toast.success(response.data.message, { id: loadingToast });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Reconciliation failed', { id: loadingToast });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -205,6 +236,16 @@ export default function SubscriptionManagement() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Subscription</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your plan and billing details.</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSync}
+          loading={syncing}
+          className="bg-white dark:bg-zinc-900 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+        >
+          <Sparkles className="w-4 h-4 mr-2 text-orange-500" />
+          Sync with Stripe
+        </Button>
       </div>
 
        {/* Current Plan Status */}
