@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { subscriptionAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import toast from 'react-hot-toast';
+import { load as loadCashfree } from '@cashfreepayments/cashfree-js';
 import {
   Check,
   Crown,
@@ -169,14 +170,34 @@ export default function SubscriptionManagement() {
     setLoading(planId);
     try {
       const response = await subscriptionAPI.createCheckout(planId);
-      const { url } = response.data.data;
+      const { sessionId, url, environment } = response.data.data;
 
-      if (url) {
+      // Strategy 1: Use Cashfree JS SDK with session ID (primary)
+      if (sessionId) {
+        const cashfree = await loadCashfree({ mode: environment || 'sandbox' });
+        if (cashfree) {
+          const result = await cashfree.checkout({
+            paymentSessionId: sessionId,
+            returnUrl: `${window.location.origin}/dashboard?tab=subscription&success=true`,
+          });
+          
+          if (result.error) {
+            console.error('Cashfree checkout error:', result.error);
+            toast.error(result.error.message || 'Checkout failed');
+          }
+          // If successful, user is redirected to returnUrl
+        } else {
+          toast.error('Failed to load payment gateway');
+        }
+      }
+      // Strategy 2: Direct URL redirect (fallback)
+      else if (url) {
         window.location.href = url;
       } else {
         toast.error('Failed to create checkout session');
       }
     } catch (error: any) {
+      console.error('Checkout error:', error);
       toast.error(error.response?.data?.message || 'Failed to start checkout');
     } finally {
       setLoading(null);
