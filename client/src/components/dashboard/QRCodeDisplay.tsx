@@ -59,7 +59,13 @@ export default function QRCodeDisplay() {
     toast.success('QR code downloaded');
   };
 
-  const menuUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/menu/${restaurant?.slug}`;
+  const [baseUrl, setBaseUrl] = useState<string>('');
+
+  useEffect(() => {
+    setBaseUrl(process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
+  }, []);
+
+  const menuUrl = `${baseUrl}/menu/${restaurant?.slug}`;
 
   const handleCopyLink = async () => {
     if (!restaurant?.slug) {
