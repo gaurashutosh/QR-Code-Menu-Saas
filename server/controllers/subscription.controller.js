@@ -131,6 +131,21 @@ export const createCheckoutSession = async (req, res, next) => {
 /**
  * Handle Cashfree webhook
  * POST /api/subscription/webhook
+ * 
+ * Cashfree Subscription Webhook Payload Structure (v2023-08-01):
+ * {
+ *   "type": "SUBSCRIPTION_STATUS_CHANGE",
+ *   "event_time": "2024-01-01T00:00:00Z",
+ *   "data": {
+ *     "subscription_details": {
+ *       "cf_subscription_id": "123",
+ *       "subscription_id": "sub_xxx",
+ *       "subscription_status": "ACTIVE",
+ *       ...
+ *     },
+ *     "payment_details": { ... }  // present for payment events
+ *   }
+ * }
  */
 export const handleWebhook = async (req, res) => {
   try {
@@ -142,7 +157,7 @@ export const handleWebhook = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // Capture raw body (Buffer) and verify signature
+    // Capture raw body (Buffer) and verify HMAC SHA256 signature
     const rawBody = req.body.toString();
     const dataToVerify = timestamp + rawBody;
     const expectedSignature = crypto
@@ -158,23 +173,38 @@ export const handleWebhook = async (req, res) => {
     // Parse verified payload
     const payload = JSON.parse(rawBody);
     
-    // Cashfree uses "type" as the event field (confirmed from actual payloads)
-    // Also support legacy "event" and "cf_event" for compatibility
+    // === EVENT TYPE EXTRACTION ===
+    // Cashfree uses "type" for newer versions, "cf_event" for legacy
     const event = payload.type || payload.event || payload.cf_event;
-    const eventData = payload.data || {};
     
-    // Extract subscription ID from multiple possible locations
+    // === DATA EXTRACTION ===
+    // v2023+: data.subscription_details / data.payment_details
+    // Legacy: data.subscription / flat cf_ fields
+    const eventData = payload.data || {};
+    const subDetails = eventData.subscription_details || eventData.subscription || eventData;
+    const paymentDetails = eventData.payment_details || eventData.payment || {};
+    
+    // === SUBSCRIPTION ID EXTRACTION ===
+    // Try all known field paths across Cashfree API versions
     const subscriptionId = 
-      eventData.subscription?.subscription_id ||
-      eventData.subscription_id ||
-      payload.cf_subscriptionId ||
-      eventData.cf_subscriptionId ||
+      subDetails.subscription_id ||           // v2023: data.subscription_details.subscription_id
+      subDetails.cf_subscription_id ||        // v2023: data.subscription_details.cf_subscription_id
+      eventData.subscription_id ||            // flat: data.subscription_id
+      payload.cf_subscriptionId ||            // legacy: cf_subscriptionId
+      payload.cf_subReferenceId ||            // legacy: cf_subReferenceId
       null;
     
-    console.log(`🔔 Verified Webhook received: ${event} for Sub: ${subscriptionId}`);
-    console.log(`📦 Payload keys: ${Object.keys(payload).join(", ")}`);
+    // Log everything for production debugging
+    console.log(`🔔 Webhook received — Event: "${event}" | Sub: ${subscriptionId}`);
+    console.log(`📦 Top-level keys: [${Object.keys(payload).join(", ")}]`);
+    console.log(`📦 Data keys: [${Object.keys(eventData).join(", ")}]`);
+    if (eventData.subscription_details) {
+      console.log(`📦 subscription_details keys: [${Object.keys(eventData.subscription_details).join(", ")}]`);
+    }
+    // Full payload dump for debugging (remove in production once stable)
+    console.log(`📋 Full payload: ${JSON.stringify(payload, null, 2)}`);
 
-    // Log verified webhook with full payload for debugging
+    // Log to database for audit trail
     await PaymentLog.create({
       event: `WEBHOOK_${event || 'UNKNOWN'}`,
       subscriptionId: subscriptionId,
@@ -183,89 +213,101 @@ export const handleWebhook = async (req, res) => {
       ipAddress: req.ip
     });
 
+    // === HANDLE TEST WEBHOOKS ===
+    // Cashfree dashboard "Test" button sends: { type: "WEBHOOK", data: { test_object: {...} } }
     if (!event || event === "WEBHOOK") {
-      // "WEBHOOK" is the test event type sent from Cashfree dashboard
-      console.log("ℹ️ Received test webhook or unidentified event type");
-      return res.status(200).json({ success: true, message: "Webhook received" });
+      console.log("✅ Test webhook received and acknowledged.");
+      return res.status(200).json({ success: true, message: "Test webhook received" });
     }
 
+    // === PROCESS REAL EVENTS ===
+    const subStatus = (subDetails.subscription_status || subDetails.status || payload.cf_status || "").toUpperCase();
+
     switch (event) {
-      case "SUBSCRIPTION_STATUS_CHANGE": {
-        const subData = eventData.subscription || eventData;
-        const status = subData.subscription_status || subData.status || payload.cf_status;
-        const subId = subData.subscription_id || subscriptionId;
+      // ── Subscription Status Changes ──
+      case "SUBSCRIPTION_STATUS_CHANGE":
+      case "SUBSCRIPTION_STATUS_CHANGED": {
+        console.log(`📋 Status change → ${subStatus} for ${subscriptionId}`);
 
-        console.log(`📋 Status change: ${status} for ${subId}`);
-
-        if (status === "ACTIVE") {
+        if (subStatus === "ACTIVE") {
           await Subscription.findOneAndUpdate(
-            { cfSubscriptionId: subId },
+            { cfSubscriptionId: subscriptionId },
             { 
               status: "active",
-              currentPeriodStart: subData.current_period_start ? new Date(subData.current_period_start) : new Date(),
-              currentPeriodEnd: subData.current_period_end ? new Date(subData.current_period_end) : null,
+              currentPeriodStart: subDetails.current_period_start ? new Date(subDetails.current_period_start) : new Date(),
+              currentPeriodEnd: subDetails.current_period_end ? new Date(subDetails.current_period_end) : null,
             }
           );
-          console.log(`✅ Subscription ${subId} activated via webhook`);
-        } else if (["CANCELLED", "CUSTOMER_CANCELLED", "EXPIRED", "COMPLETED"].includes(status)) {
+          console.log(`✅ Subscription ${subscriptionId} ACTIVATED`);
+        } else if (["CANCELLED", "CUSTOMER_CANCELLED", "EXPIRED", "COMPLETED"].includes(subStatus)) {
           await Subscription.findOneAndUpdate(
-            { cfSubscriptionId: subId },
+            { cfSubscriptionId: subscriptionId },
             { status: "canceled", cancelAtPeriodEnd: true }
           );
-          console.log(`🚫 Subscription ${subId} status: ${status}`);
-        } else if (status === "ON_HOLD" || status === "PAST_DUE") {
+          console.log(`🚫 Subscription ${subscriptionId} → ${subStatus}`);
+        } else if (["ON_HOLD", "PAST_DUE", "BANK_APPROVAL_PENDING"].includes(subStatus)) {
           await Subscription.findOneAndUpdate(
-            { cfSubscriptionId: subId },
+            { cfSubscriptionId: subscriptionId },
             { status: "past_due" }
           );
-          console.log(`⚠️ Subscription ${subId} is ${status}`);
+          console.log(`⚠️ Subscription ${subscriptionId} → ${subStatus}`);
         }
         break;
       }
 
+      // ── Payment Success ──
       case "SUBSCRIPTION_PAYMENT_SUCCESS":
       case "SUBSCRIPTION_NEW_PAYMENT_SUCCESS": {
-        const subData = eventData.subscription || eventData;
-        const subId = subData.subscription_id || subscriptionId;
-        
         await Subscription.findOneAndUpdate(
-          { cfSubscriptionId: subId },
+          { cfSubscriptionId: subscriptionId },
           { status: "active" }
         );
-        console.log(`💰 Payment success for ${subId}`);
+        console.log(`💰 Payment SUCCESS for ${subscriptionId}`);
         break;
       }
 
+      // ── Payment Failed ──
       case "SUBSCRIPTION_PAYMENT_FAILED":
       case "SUBSCRIPTION_NEW_PAYMENT_FAILED": {
-        const subData = eventData.subscription || eventData;
-        const subId = subData.subscription_id || subscriptionId;
-        console.warn(`❌ Payment failed for subscription: ${subId}`);
+        console.warn(`❌ Payment FAILED for ${subscriptionId}`);
+        // Don't deactivate immediately — Cashfree will retry
         break;
       }
 
+      // ── Auth Status (checkout completed) ──
       case "SUBSCRIPTION_AUTH_STATUS": {
-        const subData = eventData.subscription || eventData;
-        const subId = subData.subscription_id || subscriptionId;
-        const authStatus = subData.authorization_status || subData.auth_status;
-        console.log(`🔑 Auth status for ${subId}: ${authStatus}`);
+        const authStatus = (subDetails.authorization_status || subDetails.auth_status || "").toUpperCase();
+        console.log(`🔑 Auth status → ${authStatus} for ${subscriptionId}`);
         
         if (authStatus === "ACTIVE" || authStatus === "APPROVED") {
           await Subscription.findOneAndUpdate(
-            { cfSubscriptionId: subId },
+            { cfSubscriptionId: subscriptionId },
             { status: "active" }
           );
+          console.log(`✅ Auth approved → Subscription ${subscriptionId} ACTIVATED`);
         }
+        break;
+      }
+
+      // ── Payment Cancelled ──
+      case "SUBSCRIPTION_PAYMENT_CANCELLED": {
+        console.log(`🚫 Payment cancelled for ${subscriptionId}`);
+        break;
+      }
+
+      // ── Refund ──
+      case "SUBSCRIPTION_REFUND_STATUS": {
+        console.log(`💸 Refund event for ${subscriptionId}`);
         break;
       }
 
       default:
-        console.log(`ℹ️ Webhook event "${event}" received — no specific handler.`);
+        console.log(`ℹ️ Unhandled event type: "${event}"`);
     }
 
     res.json({ success: true });
   } catch (error) {
-    console.error("❌ Webhook processing error:", error.message);
+    console.error("❌ Webhook processing error:", error.message, error.stack);
     res.status(400).json({ success: false, message: "Invalid payload" });
   }
 };
