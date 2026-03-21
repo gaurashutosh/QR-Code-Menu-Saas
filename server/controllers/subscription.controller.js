@@ -144,54 +144,91 @@ export const handleWebhook = async (req, res) => {
 
     // Parse verified payload
     const payload = JSON.parse(rawBody);
-    const { event, data } = payload;
+    
+    // Support both old and new (cf_ prefixed) formats
+    const event = payload.cf_event || payload.event;
+    const subscriptionId = payload.cf_subscriptionId || payload.data?.subscription?.subscription_id || payload.subscription_id;
+    
+    console.log(`🔔 Verified Webhook received: ${event} for Sub: ${subscriptionId}`);
 
-    console.log(`🔔 Verified Webhook received: ${event}`);
-
-    // Log verified webhook
+    // Log verified webhook with full payload for debugging
     await PaymentLog.create({
-      event: `WEBHOOK_${event}`,
-      subscriptionId: data.subscription?.subscription_id,
+      event: `WEBHOOK_${event || 'UNKNOWN'}`,
+      subscriptionId: subscriptionId,
       payload: payload,
       status: "verified",
       ipAddress: req.ip
     });
 
-    switch (event) {
-      case "SUBSCRIPTION_STATUS_CHANGE": {
-        const { subscription_id, status, current_period_start, current_period_end } = data.subscription;
-        
-        const existingSub = await Subscription.findOne({ cfSubscriptionId: subscription_id });
-        
-        // Idempotency: Don't allow downgrade if already active
-        if (existingSub && existingSub.status === "active" && status.toLowerCase() !== "active") {
-          console.log(`ℹ️ Ignoring status change for active subscription: ${subscription_id}`);
-          return res.json({ success: true });
-        }
+    if (!event) {
+      console.warn("⚠️ Received verified webhook but could not identify event type");
+      return res.status(200).json({ success: true, message: "Webhook received but event unknown" });
+    }
 
+    switch (event) {
+      case "SUBSCRIPTION_STATUS_CHANGE":
+      case "SUBSCRIPTION_ACTIVE":
+      case "SUBSCRIPTION_ACTIVATED": {
+        const status = payload.cf_status || payload.data?.subscription?.status;
+        const subId = payload.cf_subscriptionId || payload.data?.subscription?.subscription_id;
+
+        if (status === "ACTIVE" || status === "ACTIVATED") {
+          await Subscription.findOneAndUpdate(
+            { cfSubscriptionId: subId },
+            { 
+              status: "active",
+              isActive: true,
+              lastWebhookEvent: event,
+              lastWebhookAt: new Date()
+            }
+          );
+          console.log(`✅ Subscription ${subId} activated via webhook`);
+        }
+        break;
+      }
+
+      case "SUBSCRIPTION_PAYMENT_SUCCESS": {
+        const subId = payload.cf_subscriptionId || payload.data?.subscription?.subscription_id;
+        
         await Subscription.findOneAndUpdate(
-          { cfSubscriptionId: subscription_id },
-          {
-            status: status.toLowerCase() === "active" ? "active" : status.toLowerCase(),
-            currentPeriodStart: new Date(current_period_start),
-            currentPeriodEnd: new Date(current_period_end),
+          { cfSubscriptionId: subId },
+          { 
+            status: "active",
+            isActive: true,
+            lastWebhookEvent: event,
+            lastWebhookAt: new Date()
           }
         );
+        console.log(`💰 Payment success for ${subId}, subscription active`);
         break;
       }
-      case "SUBSCRIPTION_PAYMENT_SUCCESS": {
-        const { subscription_id } = data.subscription;
-        const sub = await Subscription.findOne({ cfSubscriptionId: subscription_id });
-        if (sub) {
-          // Prevent duplicate activation logic
-          if (sub.status !== "active") {
-            sub.status = "active";
-            await sub.save();
+
+      case "SUBSCRIPTION_PAYMENT_FAILED": {
+        const subId = payload.cf_subscriptionId || payload.data?.subscription?.subscription_id;
+        console.warn(`❌ Payment failed for subscription: ${subId}`);
+        break;
+      }
+
+      case "SUBSCRIPTION_CANCELLED":
+      case "CUSTOMER_CANCELLED": {
+        const subId = payload.cf_subscriptionId || payload.data?.subscription?.subscription_id;
+        await Subscription.findOneAndUpdate(
+          { cfSubscriptionId: subId },
+          { 
+            status: "cancelled",
+            isActive: false,
+            lastWebhookEvent: event,
+            lastWebhookAt: new Date()
           }
-        }
+        );
+        console.log(`🚫 Subscription ${subId} cancelled via webhook`);
         break;
       }
+
+      default:
+        console.log(`ℹ️ Webhook event "${event}" received but no specific handler implemented.`);
     }
+
     res.json({ success: true });
   } catch (error) {
     console.error("Webhook processing error:", error.message);
