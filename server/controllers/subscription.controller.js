@@ -77,6 +77,13 @@ export const createCheckoutSession = async (req, res, next) => {
     const cfResponse = response.data;
     console.log("Cashfree Subscription Response:", JSON.stringify(cfResponse, null, 2));
     
+    // Get current subscription to check status and avoid cutting off access
+    const currentSub = await Subscription.findOne({ restaurant: restaurant._id });
+    const isCurrentlyActive = currentSub && (
+      currentSub.status === "active" || 
+      (currentSub.status === "trialing" && currentSub.trialEnd > new Date())
+    );
+
     // Save partial subscription info to DB
     await Subscription.findOneAndUpdate(
       { restaurant: restaurant._id },
@@ -86,7 +93,7 @@ export const createCheckoutSession = async (req, res, next) => {
         cfPlanId: planInfo.cfPlanId,
         plan: "Premium",
         billingCycle: plan === "yearly" ? "yearly" : "monthly",
-        status: "incomplete",
+        status: isCurrentlyActive ? currentSub.status : "incomplete",
       },
       { upsert: true }
     );
