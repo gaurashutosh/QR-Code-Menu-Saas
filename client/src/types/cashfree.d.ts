@@ -1,6 +1,7 @@
 declare module '@cashfreepayments/cashfree-js' {
   interface CashfreeCheckoutOptions {
-    paymentSessionId: string;
+    paymentSessionId?: string;
+    subscriptionSessionId?: string;
     returnUrl?: string;
   }
 

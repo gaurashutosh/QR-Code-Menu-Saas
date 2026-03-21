@@ -182,9 +182,9 @@ export default function SubscriptionManagement() {
       else if (sessionId) {
         const cashfree = await loadCashfree({ mode: environment || 'sandbox' });
         if (cashfree) {
-          // Some versions of the SDK might accept it as paymentSessionId or subscriptionSessionId
+          // For subscriptions, the key must be subscriptionSessionId
           const result = await cashfree.checkout({
-            paymentSessionId: sessionId,
+            subscriptionSessionId: sessionId,
             returnUrl: `${window.location.origin}/dashboard?tab=subscription&success=true`,
           });
           
