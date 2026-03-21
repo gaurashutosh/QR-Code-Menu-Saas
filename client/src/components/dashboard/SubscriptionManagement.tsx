@@ -172,10 +172,17 @@ export default function SubscriptionManagement() {
       const response = await subscriptionAPI.createCheckout(planId);
       const { sessionId, url, environment } = response.data.data;
 
-      // Strategy 1: Use Cashfree JS SDK with session ID (primary)
-      if (sessionId) {
+      // For subscriptions, Cashfree returns an authorization_link (url).
+      // We prioritize redirecting to this hosted checkout page directly.
+      if (url) {
+        window.location.href = url;
+      } 
+      // If for some reason we only get a session ID and no URL, we might try the SDK
+      // but note that cashfree.checkout() strictly expects a paymentSessionId.
+      else if (sessionId) {
         const cashfree = await loadCashfree({ mode: environment || 'sandbox' });
         if (cashfree) {
+          // Some versions of the SDK might accept it as paymentSessionId or subscriptionSessionId
           const result = await cashfree.checkout({
             paymentSessionId: sessionId,
             returnUrl: `${window.location.origin}/dashboard?tab=subscription&success=true`,
@@ -183,16 +190,11 @@ export default function SubscriptionManagement() {
           
           if (result.error) {
             console.error('Cashfree checkout error:', result.error);
-            toast.error(result.error.message || 'Checkout failed');
+            toast.error(result.error.message || 'Checkout failed. Please try again.');
           }
-          // If successful, user is redirected to returnUrl
         } else {
           toast.error('Failed to load payment gateway');
         }
-      }
-      // Strategy 2: Direct URL redirect (fallback)
-      else if (url) {
-        window.location.href = url;
       } else {
         toast.error('Failed to create checkout session');
       }
