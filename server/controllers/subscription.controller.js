@@ -1,12 +1,10 @@
-import stripe from "../config/stripe.js";
+import crypto from "crypto";
+import cashfree from "../config/cashfree.js";
 import Subscription from "../models/Subscription.js";
 import User from "../models/User.js";
 import Restaurant from "../models/Restaurant.js";
-
-const PRICE_IDS = {
-  monthly: "price_1SzD0cFFIKPWDHvRyDpvOwtH",
-  yearly: "price_1SzD2AFFIKPWDHvR4jVqhDLw",
-};
+import PaymentLog from "../models/PaymentLog.js";
+import { PLAN_IDS } from "../config/plans.js";
 
 /**
  * Create checkout session
@@ -16,8 +14,8 @@ export const createCheckoutSession = async (req, res, next) => {
   try {
     const { plan } = req.body; // "monthly" or "yearly"
 
-    const priceId = PRICE_IDS[plan];
-    if (!priceId) {
+    const planInfo = PLAN_IDS[plan];
+    if (!planInfo) {
       return res.status(400).json({
         success: false,
         message: "Invalid plan selected",
@@ -49,170 +47,157 @@ export const createCheckoutSession = async (req, res, next) => {
       });
     }
 
-    // Get or create Stripe customer
-    let customerId = req.user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: req.user.email,
-        name: req.user.displayName,
-        metadata: {
-          userId: req.user._id.toString(),
-        },
-      });
-      customerId = customer.id;
-
-      await User.findByIdAndUpdate(req.user._id, {
-        stripeCustomerId: customerId,
+    // Enforce phone number for fraud protection
+    if (!restaurant.phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant phone number is required for premium subscription",
       });
     }
 
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: "subscription",
-      success_url: `${process.env.CLIENT_URL}/dashboard?tab=subscription&success=true`,
-      cancel_url: `${process.env.CLIENT_URL}/dashboard?tab=subscription&canceled=true`,
-      metadata: {
-        userId: req.user._id.toString(),
-        restaurantId: restaurant._id.toString(),
-        plan: "Premium",
+    const subscriptionId = `sub_${crypto.randomBytes(12).toString("hex")}`;
+
+    // Create subscription in Cashfree
+    const subscriptionRequest = {
+      subscription_id: subscriptionId,
+      plan_details: {
+        plan_id: planInfo.cfPlanId,
       },
+      customer_details: {
+        customer_name: req.user.displayName,
+        customer_email: req.user.email,
+        customer_phone: restaurant.phone,
+      },
+      subscription_meta: {
+        return_url: `${process.env.CLIENT_URL}/dashboard?tab=subscription&success=true`,
+      }
+    };
+
+    const response = await cashfree.post("/subscriptions", subscriptionRequest);
+    console.log("Cashfree Subscription Response:", JSON.stringify(response.data, null, 2));
+    
+    // Save partial subscription info to DB
+    await Subscription.findOneAndUpdate(
+      { restaurant: restaurant._id },
+      {
+        user: req.user._id,
+        cfSubscriptionId: subscriptionId,
+        cfPlanId: planInfo.cfPlanId,
+        plan: "Premium",
+        billingCycle: plan === "yearly" ? "yearly" : "monthly",
+        status: "incomplete",
+      },
+      { upsert: true }
+    );
+
+    // Log the event
+    await PaymentLog.create({
+      event: "PAYMENT_INITIATED",
+      subscriptionId,
+      restaurant: restaurant._id,
+      status: "incomplete",
+      payload: { plan, planId: planInfo.cfPlanId }
     });
 
     res.json({
       success: true,
-      data: { url: session.url },
+      data: { 
+        url: response.data.auth_url || 
+             response.data.authLink || 
+             response.data.authorization_link || 
+             response.data.subscription_url ||
+             response.data.payment_link
+      },
     });
   } catch (error) {
+    console.error("Cashfree Error:", error.response?.data || error.message);
     next(error);
   }
 };
 
 /**
- * Handle Stripe webhook
+ * Handle Cashfree webhook
  * POST /api/subscription/webhook
  */
 export const handleWebhook = async (req, res) => {
-  const sig = req.headers["stripe-signature"];
-  let event;
-
   try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET,
-    );
-    console.log(`🔔 Webhook received: ${event.type} [${event.id}]`);
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+    const signature = req.headers["x-webhook-signature"];
+    const timestamp = req.headers["x-webhook-timestamp"];
 
-  // Handle the event
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object;
-      await handleCheckoutComplete(session);
-      break;
+    if (!signature || !timestamp) {
+      console.warn("⚠️ Missing webhook signature or timestamp");
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    case "customer.subscription.updated": {
-      const subscription = event.data.object;
-      await handleSubscriptionUpdate(subscription);
-      break;
-    }
-    case "customer.subscription.deleted": {
-      const subscription = event.data.object;
-      await handleSubscriptionCanceled(subscription);
-      break;
-    }
-    case "invoice.payment_failed": {
-      const invoice = event.data.object;
-      await handlePaymentFailed(invoice);
-      break;
-    }
-  }
 
-  res.json({ received: true });
+    // Capture raw body (Buffer) and verify signature
+    const rawBody = req.body.toString();
+    const dataToVerify = timestamp + rawBody;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.CASHFREE_CLIENT_SECRET)
+      .update(dataToVerify)
+      .digest("base64");
+
+    if (signature !== expectedSignature) {
+      console.error("❌ Webhook signature verification failed");
+      return res.status(401).json({ success: false, message: "Invalid signature" });
+    }
+
+    // Parse verified payload
+    const payload = JSON.parse(rawBody);
+    const { event, data } = payload;
+
+    console.log(`🔔 Verified Webhook received: ${event}`);
+
+    // Log verified webhook
+    await PaymentLog.create({
+      event: `WEBHOOK_${event}`,
+      subscriptionId: data.subscription?.subscription_id,
+      payload: payload,
+      status: "verified",
+      ipAddress: req.ip
+    });
+
+    switch (event) {
+      case "SUBSCRIPTION_STATUS_CHANGE": {
+        const { subscription_id, status, current_period_start, current_period_end } = data.subscription;
+        
+        const existingSub = await Subscription.findOne({ cfSubscriptionId: subscription_id });
+        
+        // Idempotency: Don't allow downgrade if already active
+        if (existingSub && existingSub.status === "active" && status.toLowerCase() !== "active") {
+          console.log(`ℹ️ Ignoring status change for active subscription: ${subscription_id}`);
+          return res.json({ success: true });
+        }
+
+        await Subscription.findOneAndUpdate(
+          { cfSubscriptionId: subscription_id },
+          {
+            status: status.toLowerCase() === "active" ? "active" : status.toLowerCase(),
+            currentPeriodStart: new Date(current_period_start),
+            currentPeriodEnd: new Date(current_period_end),
+          }
+        );
+        break;
+      }
+      case "SUBSCRIPTION_PAYMENT_SUCCESS": {
+        const { subscription_id } = data.subscription;
+        const sub = await Subscription.findOne({ cfSubscriptionId: subscription_id });
+        if (sub) {
+          // Prevent duplicate activation logic
+          if (sub.status !== "active") {
+            sub.status = "active";
+            await sub.save();
+          }
+        }
+        break;
+      }
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Webhook processing error:", error.message);
+    res.status(400).json({ success: false, message: "Invalid payload" });
+  }
 };
-
-async function handleCheckoutComplete(session) {
-  const { userId, restaurantId, plan } = session.metadata;
-
-  console.log(
-    `🏁 Completing checkout for user ${userId}, restaurant ${restaurantId}`,
-  );
-
-  // Get subscription details from Stripe
-  const stripeSubscription = await stripe.subscriptions.retrieve(
-    session.subscription,
-  );
-
-  console.log(
-    `📦 Stripe subscription retrieved: ${stripeSubscription.id} (Status: ${stripeSubscription.status})`,
-  );
-
-  // Update or create subscription in database
-  const updatedSub = await Subscription.findOneAndUpdate(
-    { restaurant: restaurantId },
-    {
-      user: userId,
-      stripeSubscriptionId: session.subscription,
-      stripeCustomerId: session.customer,
-      stripePriceId: stripeSubscription.items.data[0].price.id,
-      plan: plan || "Premium",
-      billingCycle:
-        stripeSubscription.items.data[0].price.recurring.interval === "year"
-          ? "yearly"
-          : "monthly",
-      status: stripeSubscription.status === "active" ? "active" : "trialing",
-      currentPeriodStart: new Date(
-        stripeSubscription.current_period_start * 1000,
-      ),
-      currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-    },
-    { upsert: true, new: true },
-  );
-
-  console.log(
-    `💾 Local subscription updated: ${updatedSub._id} (Plan: ${updatedSub.plan})`,
-  );
-}
-
-async function handleSubscriptionUpdate(subscription) {
-  await Subscription.findOneAndUpdate(
-    { stripeSubscriptionId: subscription.id },
-    {
-      status: subscription.status,
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    },
-  );
-}
-
-async function handleSubscriptionCanceled(subscription) {
-  await Subscription.findOneAndUpdate(
-    { stripeSubscriptionId: subscription.id },
-    { status: "canceled" },
-  );
-}
-
-async function handlePaymentFailed(invoice) {
-  const subscription = await Subscription.findOne({
-    stripeCustomerId: invoice.customer,
-  });
-  if (subscription) {
-    subscription.status = "past_due";
-    await subscription.save();
-  }
-}
 
 /**
  * Get subscription status
@@ -266,24 +251,18 @@ export const cancelSubscription = async (req, res, next) => {
       restaurant: restaurant._id,
     });
 
-    if (!subscription || !subscription.stripeSubscriptionId) {
-      return res.status(400).json({
-        success: false,
-        message: "No active subscription to cancel",
-      });
-    }
-
-    // Cancel at period end
-    await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-      cancel_at_period_end: true,
+    // Cancel in Cashfree
+    await cashfree.patch(`/subscriptions/${subscription.cfSubscriptionId}`, {
+      status: "CANCEL",
     });
 
+    subscription.status = "canceled";
     subscription.cancelAtPeriodEnd = true;
     await subscription.save();
 
     res.json({
       success: true,
-      message: "Subscription will be canceled at the end of billing period",
+      message: "Subscription canceled successfully",
     });
   } catch (error) {
     next(error);
@@ -296,25 +275,28 @@ export const cancelSubscription = async (req, res, next) => {
  */
 export const getPaymentHistory = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id);
-    if (!user || !user.stripeCustomerId) {
+    const restaurant = await Restaurant.findOne({ owner: req.user._id });
+    const subscription = await Subscription.findOne({
+      restaurant: restaurant._id,
+    });
+
+    if (!subscription || !subscription.cfSubscriptionId) {
       return res.json({ success: true, data: [] });
     }
 
-    const invoices = await stripe.invoices.list({
-      customer: user.stripeCustomerId,
-      limit: 12,
-    });
+    // Cashfree history implementation
+    const response = await cashfree.get(`/subscriptions/${subscription.cfSubscriptionId}/payments`);
+    const payments = response.data || [];
 
-    const history = invoices.data.map((invoice) => ({
-      id: invoice.id,
-      amount: invoice.amount_paid / 100,
-      currency: invoice.currency,
-      status: invoice.status,
-      date: new Date(invoice.created * 1000),
-      pdfUrl: invoice.invoice_pdf,
-      number: invoice.number,
-      planName: invoice.lines.data[0]?.description || "Subscription Plan",
+    const history = payments.map((p) => ({
+      id: p.cf_payment_id,
+      amount: p.payment_amount,
+      currency: "INR",
+      status: p.payment_status.toLowerCase(),
+      date: new Date(p.payment_time),
+      pdfUrl: "", // Cashfree doesn't provide direct PDF link like Stripe easily
+      number: p.cf_payment_id,
+      planName: "Premium Plan",
     }));
 
     res.json({
@@ -357,54 +339,18 @@ export const reconcileSubscription = async (req, res, next) => {
 
     let updated = false;
 
-    // Proactive Sync: If local is trial but we have a Stripe Customer ID, check Stripe directly
-    if (subscription.plan === "trial" && subscription.stripeCustomerId) {
-      console.log(
-        `⚡ Plan mismatch detected. Fetching active subscriptions from Stripe for customer: ${subscription.stripeCustomerId}`,
-      );
+    // Reconcile with Cashfree
+    if (subscription.cfSubscriptionId) {
+      const response = await cashfree.get(`/subscriptions/${subscription.cfSubscriptionId}`);
+      const cfSub = response.data;
 
-      const stripeSubscriptions = await stripe.subscriptions.list({
-        customer: subscription.stripeCustomerId,
-        status: "active",
-        limit: 1,
-      });
-
-      if (stripeSubscriptions.data.length > 0) {
-        const sub = stripeSubscriptions.data[0];
-        console.log(
-          `✨ Found active Stripe subscription: ${sub.id}. Syncing to DB...`,
-        );
-
+      if (cfSub.status.toLowerCase() === "active") {
         subscription.plan = "Premium";
         subscription.status = "active";
-        subscription.stripeSubscriptionId = sub.id;
-        subscription.stripePriceId = sub.items.data[0].price.id;
-        subscription.currentPeriodEnd = new Date(sub.current_period_end * 1000);
-        subscription.billingCycle =
-          sub.items.data[0].price.recurring.interval === "year"
-            ? "yearly"
-            : "monthly";
-
+        subscription.currentPeriodEnd = new Date(cfSub.current_period_end);
         await subscription.save();
         updated = true;
-      } else {
-        console.log(
-          "📭 No active subscriptions found on Stripe for this customer.",
-        );
       }
-    }
-    // Fallback: If stripeSubscriptionId exists but plan is trial (legacy reconcile logic)
-    else if (
-      subscription.plan === "trial" &&
-      subscription.stripeSubscriptionId &&
-      subscription.status === "active"
-    ) {
-      console.log(
-        "🩹 Legacy healing: stripeSubscriptionId exists, promoting to Premium",
-      );
-      subscription.plan = "Premium";
-      await subscription.save();
-      updated = true;
     }
 
     res.json({

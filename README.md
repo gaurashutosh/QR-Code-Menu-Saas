@@ -9,7 +9,7 @@ A SaaS platform for restaurants to create digital QR code menus.
 - Node.js 18+
 - MongoDB Atlas account
 - Firebase project
-- Stripe account (test mode)
+- Cashfree account (test mode)
 - Cloudinary account
 
 ### Setup
@@ -91,8 +91,9 @@ npm run dev
 | `FIREBASE_PROJECT_ID`   | Firebase project ID             |
 | `FIREBASE_PRIVATE_KEY`  | Firebase admin private key      |
 | `FIREBASE_CLIENT_EMAIL` | Firebase admin email            |
-| `STRIPE_SECRET_KEY`     | Stripe secret key (sk*test*...) |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook secret           |
+| `CASHFREE_CLIENT_ID`    | Cashfree client ID              |
+| `CASHFREE_CLIENT_SECRET`| Cashfree client secret          |
+| `CASHFREE_ENV`          | TEST or PRODUCTION              |
 | `CLOUDINARY_*`          | Cloudinary credentials          |
 | `CLIENT_URL`            | Frontend URL                    |
 
@@ -102,7 +103,6 @@ npm run dev
 | ------------------------------------ | ---------------------- |
 | `NEXT_PUBLIC_FIREBASE_*`             | Firebase client config |
 | `NEXT_PUBLIC_API_URL`                | Backend API URL        |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe public key      |
 
 ## 🧪 Testing
 

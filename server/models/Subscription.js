@@ -12,15 +12,11 @@ const subscriptionSchema = new mongoose.Schema(
       ref: "Restaurant",
       required: true,
     },
-    stripeSubscriptionId: {
+    cfSubscriptionId: {
       type: String,
       default: null,
     },
-    stripeCustomerId: {
-      type: String,
-      default: null,
-    },
-    stripePriceId: {
+    cfPlanId: {
       type: String,
       default: null,
     },
@@ -90,7 +86,7 @@ subscriptionSchema.methods.getDaysRemaining = function () {
 
 subscriptionSchema.index({ user: 1 });
 subscriptionSchema.index({ restaurant: 1 });
-subscriptionSchema.index({ stripeSubscriptionId: 1 });
+subscriptionSchema.index({ cfSubscriptionId: 1 });
 
 const Subscription = mongoose.model("Subscription", subscriptionSchema);
 export default Subscription;

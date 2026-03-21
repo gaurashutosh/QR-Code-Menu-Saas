@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    stripeCustomerId: {
+    cashfreeCustomerId: {
       type: String,
       default: null,
     },

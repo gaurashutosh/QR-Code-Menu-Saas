@@ -1,4 +1,5 @@
 import "dotenv/config";
+import validateEnv from "./utils/envValidator.js";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -19,22 +20,24 @@ import feedbackRoutes from "./routes/feedback.routes.js";
 import customerFeedbackRoutes from "./routes/customerFeedback.routes.js";
 
 import { errorHandler, notFound } from "./middleware/error.middleware.js";
-import { apiLimiter, authLimiter } from "./middleware/rateLimit.middleware.js";
+import { apiLimiter, authLimiter, webhookLimiter } from "./middleware/rateLimit.middleware.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Validate environment variables on startup
+validateEnv();
+
 // Trust proxy for rate limiting behind Render/load balancers
 app.set("trust proxy", 1);
 
-// Security middleware
-app.use(helmet());
+// CORS configuration - Robust handling of origins and trailing slashes
+const normalizeOrigin = (url) => (url ? url.trim().replace(/\/$/, "") : "");
 
-// CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-  process.env.CLIENT_URL,
+  process.env.CLIENT_URL ? normalizeOrigin(process.env.CLIENT_URL) : null,
 ].filter(Boolean);
 
 app.use(
@@ -43,19 +46,32 @@ app.use(
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.indexOf(origin) !== -1) {
+      const normalizedOrigin = normalizeOrigin(origin);
+      const isAllowed = allowedOrigins.some(
+        (allowed) => normalizeOrigin(allowed) === normalizedOrigin,
+      );
+
+      if (isAllowed) {
         callback(null, true);
       } else {
-        console.log("Blocked by CORS:", origin);
+        console.warn(
+          `⚠️ CORS Blocked: Origin "${origin}" is not in list:`,
+          allowedOrigins,
+        );
         callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
   }),
 );
 
-// Body parsers - Note: Stripe webhook needs raw body
-app.use("/api/subscription/webhook", express.raw({ type: "application/json" }));
+// Security middleware
+app.use(helmet());
+
+// Body parsers - Note: Webhook needs raw body for signature verification
+app.use("/api/subscription/webhook", express.raw({ type: "*/*" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -69,6 +85,7 @@ if (process.env.NODE_ENV === "development") {
 // Security - Rate Limiting
 app.use("/api", apiLimiter); // Apply general limit to all API routes
 app.use("/api/auth", authLimiter); // Apply strict limit to auth routes
+app.use("/api/subscription/webhook", webhookLimiter);
 
 // Security - Data Sanitization
 // Custom middleware to fix Express 5 read-only req.query issue

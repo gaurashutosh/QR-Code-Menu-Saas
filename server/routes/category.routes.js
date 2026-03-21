@@ -27,6 +27,7 @@ router.use(authMiddleware);
 // Create category
 router.post(
   "/",
+  subscriptionMiddleware,
   categoryValidation,
   validateRequest,
   categoryController.createCategory,
@@ -35,15 +36,16 @@ router.post(
 // Update category
 router.put(
   "/:id",
+  subscriptionMiddleware,
   categoryValidation.map((v) => v.optional()),
   validateRequest,
   categoryController.updateCategory,
 );
 
 // Delete category
-router.delete("/:id", categoryController.deleteCategory);
+router.delete("/:id", subscriptionMiddleware, categoryController.deleteCategory);
 
 // Reorder categories
-router.patch("/reorder", categoryController.reorderCategories);
+router.patch("/reorder", subscriptionMiddleware, categoryController.reorderCategories);
 
 export default router;

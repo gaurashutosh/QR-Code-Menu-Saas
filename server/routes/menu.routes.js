@@ -40,6 +40,7 @@ router.use(authMiddleware);
 // Create menu item
 router.post(
   "/",
+  subscriptionMiddleware,
   menuItemValidation,
   validateRequest,
   menuController.createMenuItem,
@@ -48,15 +49,16 @@ router.post(
 // Update menu item
 router.put(
   "/:id",
+  subscriptionMiddleware,
   menuItemValidation.map((v) => v.optional()),
   validateRequest,
   menuController.updateMenuItem,
 );
 
 // Delete menu item
-router.delete("/:id", menuController.deleteMenuItem);
+router.delete("/:id", subscriptionMiddleware, menuController.deleteMenuItem);
 
 // Toggle availability
-router.patch("/:id/toggle", menuController.toggleAvailability);
+router.patch("/:id/toggle", subscriptionMiddleware, menuController.toggleAvailability);
 
 export default router;

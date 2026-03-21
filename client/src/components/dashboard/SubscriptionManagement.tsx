@@ -87,7 +87,7 @@ export default function SubscriptionManagement() {
           refreshUser();
         } catch (error) {
           console.error('Auto-reconcile failed:', error);
-          toast.error('Sync delayed, but your payment was successful. Please click "Sync with Stripe" if not updated.', { id: loadingToast });
+          toast.error('Sync delayed, but your payment was successful. Please click "Sync with Cashfree" if not updated.', { id: loadingToast });
         }
       };
       
@@ -106,7 +106,7 @@ export default function SubscriptionManagement() {
   const [syncing, setSyncing] = useState(false);
   const handleSync = async () => {
     setSyncing(true);
-    const loadingToast = toast.loading('Syncing with Stripe...');
+    const loadingToast = toast.loading('Syncing with Cashfree...');
     try {
       const response = await subscriptionAPI.reconcile();
       if (response.data.message.includes('success')) {
@@ -244,7 +244,7 @@ export default function SubscriptionManagement() {
           className="bg-white dark:bg-zinc-900 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
         >
           <Sparkles className="w-4 h-4 mr-2 text-orange-500" />
-          Sync with Stripe
+          Sync with Cashfree
         </Button>
       </div>
 
@@ -386,7 +386,7 @@ export default function SubscriptionManagement() {
 
       <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 pt-4">
         <ShieldCheck className="w-4 h-4 text-green-600 dark:text-green-500" />
-        <span>Secured by Stripe • 7-day money-back guarantee • Cancel anytime</span>
+        <span>Secured by Cashfree • 7-day money-back guarantee • Cancel anytime</span>
       </div>
 
       {/* Payment History Section */}

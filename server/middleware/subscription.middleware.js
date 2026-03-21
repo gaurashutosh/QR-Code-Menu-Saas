@@ -7,18 +7,23 @@ import Restaurant from "../models/Restaurant.js";
 export const subscriptionMiddleware = async (req, res, next) => {
   try {
     // Get restaurant ID from params or body
-    const restaurantId =
+    let restaurantId =
       req.params.restaurantId || req.params.id || req.body.restaurant;
 
+    let restaurant;
     if (!restaurantId) {
-      return res.status(400).json({
-        success: false,
-        message: "Restaurant ID is required",
-      });
+      // Fallback: Find restaurant owned by the user
+      restaurant = await Restaurant.findOne({ owner: req.user._id });
+      if (!restaurant) {
+        return res.status(404).json({
+          success: false,
+          message: "Restaurant not found. Please create one first.",
+        });
+      }
+      restaurantId = restaurant._id;
+    } else {
+      restaurant = await Restaurant.findById(restaurantId);
     }
-
-    // Find the restaurant
-    const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
       return res.status(404).json({
         success: false,

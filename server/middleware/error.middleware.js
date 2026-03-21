@@ -35,7 +35,19 @@ export const errorHandler = (err, req, res, next) => {
       .join(", ");
   }
 
-  // Stripe errors
+  // Malformed JSON error
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    statusCode = 400;
+    message = "Malformed JSON payload";
+  }
+
+  // Cashfree / Stripe / Generic API errors
+  if (err.response && err.response.data) {
+    statusCode = err.response.status || 400;
+    message = err.response.data.message || message;
+  }
+
+  // Stripe specific (legacy)
   if (err.type && err.type.startsWith("Stripe")) {
     statusCode = 400;
     message = err.message;

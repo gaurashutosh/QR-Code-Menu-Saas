@@ -25,3 +25,10 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Dedicated limiter for webhooks: 50 requests per minute
+export const webhookLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 50,
+  message: { success: false, message: "Too many webhook requests" },
+});

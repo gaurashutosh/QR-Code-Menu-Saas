@@ -92,7 +92,8 @@ export default function PublicMenuClient({ data, slug }: PublicMenuClientProps) 
 
   // Record scan on page load
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/public/menu/${slug}/scan`, {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${apiBase}/public/menu/${slug}/scan`, {
       method: 'POST',
     }).catch(() => {});
   }, [slug]);
