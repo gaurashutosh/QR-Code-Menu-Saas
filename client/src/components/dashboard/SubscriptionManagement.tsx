@@ -172,31 +172,34 @@ export default function SubscriptionManagement() {
       const response = await subscriptionAPI.createCheckout(planId);
       const { sessionId, url, environment } = response.data.data;
 
-      // For subscriptions, Cashfree returns an authorization_link (url).
-      // We prioritize redirecting to this hosted checkout page directly.
+      // Strategy 1: Direct URL redirect (if backend provides an authorization link)
       if (url) {
         window.location.href = url;
-      } 
-      // If for some reason we only get a session ID and no URL, we might try the SDK
-      // but note that cashfree.checkout() strictly expects a paymentSessionId.
-      else if (sessionId) {
+        return;
+      }
+
+      // Strategy 2: Use Cashfree JS SDK's subscriptionsCheckout method
+      // IMPORTANT: For subscriptions, we must use subscriptionsCheckout(), NOT checkout().
+      // checkout() is only for one-time payment orders and requires paymentSessionId.
+      // subscriptionsCheckout() is for recurring subscriptions and requires subsSessionId.
+      if (sessionId) {
         const cashfree = await loadCashfree({ mode: environment || 'sandbox' });
         if (cashfree) {
-          // For subscriptions, the key must be subscriptionSessionId
-          const result = await cashfree.checkout({
-            subscriptionSessionId: sessionId,
+          const result = await cashfree.subscriptionsCheckout({
+            subsSessionId: sessionId,
             returnUrl: `${window.location.origin}/dashboard?tab=subscription&success=true`,
           });
           
           if (result.error) {
-            console.error('Cashfree checkout error:', result.error);
+            console.error('Cashfree subscription checkout error:', result.error);
             toast.error(result.error.message || 'Checkout failed. Please try again.');
           }
+          // If successful, user is redirected to returnUrl by Cashfree
         } else {
-          toast.error('Failed to load payment gateway');
+          toast.error('Failed to load payment gateway. Please try again.');
         }
       } else {
-        toast.error('Failed to create checkout session');
+        toast.error('Failed to create checkout session. Please try again later.');
       }
     } catch (error: any) {
       console.error('Checkout error:', error);
