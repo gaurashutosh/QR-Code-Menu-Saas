@@ -367,24 +367,43 @@ export const getSubscriptionStatus = async (req, res, next) => {
 export const cancelSubscription = async (req, res, next) => {
   try {
     const restaurant = await Restaurant.findOne({ owner: req.user._id });
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: "No restaurant found" });
+    }
+
     const subscription = await Subscription.findOne({
       restaurant: restaurant._id,
     });
 
-    // Cancel in Cashfree
-    await cashfree.patch(`/subscriptions/${subscription.cfSubscriptionId}`, {
-      status: "CANCEL",
-    });
+    if (!subscription) {
+      return res.status(404).json({ success: false, message: "No subscription found" });
+    }
 
+    // If there's a real Cashfree subscription (not just a trial), cancel it via API
+    if (subscription.cfSubscriptionId && subscription.status === "active") {
+      try {
+        // Cashfree uses POST /subscriptions/{id}/manage with { action: "CANCEL" }
+        await cashfree.post(`/subscriptions/${subscription.cfSubscriptionId}/manage`, {
+          action: "CANCEL",
+        });
+        console.log(`🚫 Cashfree subscription ${subscription.cfSubscriptionId} cancelled via API`);
+      } catch (cfError) {
+        // Log but don't block — still cancel locally
+        console.warn("⚠️ Cashfree cancel API error:", cfError.response?.data || cfError.message);
+      }
+    }
+
+    // Cancel locally regardless of Cashfree API result
     subscription.status = "canceled";
     subscription.cancelAtPeriodEnd = true;
     await subscription.save();
 
     res.json({
       success: true,
-      message: "Subscription canceled successfully",
+      message: "Subscription cancelled successfully",
     });
   } catch (error) {
+    console.error("❌ Cancel subscription error:", error.message);
     next(error);
   }
 };

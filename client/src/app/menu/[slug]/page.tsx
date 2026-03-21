@@ -1,6 +1,20 @@
 import { notFound } from 'next/navigation';
-import { publicAPI } from '@/lib/api';
 import PublicMenuClient from './PublicMenuClient';
+
+// Server-side API URL resolution
+// Checks NEXT_PUBLIC_API_URL (build-time), API_URL (server-only), then production fallback
+const getApiUrl = () => {
+  const base = process.env.NEXT_PUBLIC_API_URL || 
+               process.env.API_URL || 
+               'https://qr-code-menu-saas.onrender.com/api';
+  
+  // Ensure it ends with /api (but not /api/)
+  let url = base.replace(/\/$/, '');
+  if (!url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  return url;
+};
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -13,7 +27,7 @@ export async function generateMetadata({ params }: PageProps) {
   
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/public/restaurant/${slug}`,
+      `${getApiUrl()}/public/restaurant/${slug}`,
       { cache: 'no-store', signal: controller.signal }
     );
     
@@ -51,7 +65,7 @@ export default async function PublicMenuPage({ params }: PageProps) {
   
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/public/menu/${slug}`,
+      `${getApiUrl()}/public/menu/${slug}`,
       { cache: 'no-store', signal: controller.signal }
     );
     

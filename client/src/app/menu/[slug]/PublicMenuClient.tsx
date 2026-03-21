@@ -92,7 +92,11 @@ export default function PublicMenuClient({ data, slug }: PublicMenuClientProps) 
 
   // Record scan on page load
   useEffect(() => {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    let apiBase = (process.env.NEXT_PUBLIC_API_URL || 'https://qr-code-menu-saas.onrender.com/api').replace(/\/$/, '');
+    if (!apiBase.endsWith('/api')) {
+      apiBase = `${apiBase}/api`;
+    }
+    
     fetch(`${apiBase}/public/menu/${slug}/scan`, {
       method: 'POST',
     }).catch(() => {});
