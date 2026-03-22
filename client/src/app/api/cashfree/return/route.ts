@@ -44,14 +44,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, { status: 303 });
   } catch (error) {
     console.error('[Cashfree Return] Error processing return:', error);
-    // Even on error, redirect to dashboard so the user isn't stranded
+    // On unexpected error, redirect to dashboard with a pending status so UI can verify
     const baseUrl = request.nextUrl.origin;
-    return NextResponse.redirect(`${baseUrl}/dashboard?tab=subscription&success=true`, { status: 303 });
+    return NextResponse.redirect(`${baseUrl}/dashboard?tab=subscription&success=pending`, { status: 303 });
   }
 }
 
-// Also handle GET in case user navigates here directly or bookmarks it
+// Also handle GET in case user navigates here directly or via a standard redirect
 export async function GET(request: NextRequest) {
-  const baseUrl = request.nextUrl.origin;
-  return NextResponse.redirect(`${baseUrl}/dashboard?tab=subscription&success=true`, { status: 303 });
+  const { searchParams, origin } = request.nextUrl;
+  
+  // Inspect incoming params to see if it's a valid successful return
+  const cfStatus = searchParams.get('cf_status') || searchParams.get('cf_checkoutStatus') || '';
+  const successStatuses = ['ACTIVE', 'SUCCESS', 'BANK_APPROVAL_PENDING', 'SUCCESS_DEBIT_PENDING', 'SUCCESS_TOKENIZATION_PENDING'];
+  
+  // If we have status and it's successful, or if it's a known success identifier
+  const isSuccess = cfStatus && successStatuses.includes(cfStatus.toUpperCase());
+
+  let redirectPath = '/dashboard?tab=subscription';
+  if (isSuccess) {
+    redirectPath += '&success=true';
+  } else if (cfStatus) {
+    // If we have a status but it's not success, it's likely a cancel or failure
+    redirectPath += '&canceled=true';
+  }
+  // If no params at all (direct access), just go to the tab basic
+
+  return NextResponse.redirect(`${origin}${redirectPath}`, { status: 303 });
 }
