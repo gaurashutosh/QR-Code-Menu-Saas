@@ -69,7 +69,7 @@ export const createCheckoutSession = async (req, res, next) => {
         customer_phone: restaurant.phone,
       },
       subscription_meta: {
-        return_url: `${process.env.CLIENT_URL}/dashboard?tab=subscription&success=true`,
+        return_url: `${process.env.CLIENT_URL}/api/cashfree/return`,
       }
     };
 
