@@ -20,19 +20,26 @@ export const authMiddleware = async (req, res, next) => {
     // Verify token with Firebase
     const decodedToken = await admin.auth().verifyIdToken(token);
 
-    // Find or create user in our database
-    let user = await User.findOne({ firebaseUid: decodedToken.uid });
+    // Find or create user atomically to prevent race conditions
+    const now = new Date();
+    const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    if (!user) {
-      // Create new user if doesn't exist
-      user = await User.create({
-        firebaseUid: decodedToken.uid,
-        email: decodedToken.email,
-        displayName: decodedToken.name || decodedToken.email?.split("@")[0],
-        photoURL: decodedToken.picture,
-        isEmailVerified: decodedToken.email_verified,
-      });
-    }
+    let user = await User.findOneAndUpdate(
+      { firebaseUid: decodedToken.uid },
+      {
+        $setOnInsert: {
+          firebaseUid: decodedToken.uid,
+          email: decodedToken.email,
+          displayName: decodedToken.name || decodedToken.email?.split("@")[0],
+          photoURL: decodedToken.picture,
+          isEmailVerified: decodedToken.email_verified,
+          subscriptionStatus: "trial",
+          trialStartDate: now,
+          trialEndDate: trialEnd,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
     req.user = user;
     req.firebaseUser = decodedToken;

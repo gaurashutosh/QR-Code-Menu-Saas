@@ -21,6 +21,7 @@ import customerFeedbackRoutes from "./routes/customerFeedback.routes.js";
 
 import { errorHandler, notFound } from "./middleware/error.middleware.js";
 import { apiLimiter, authLimiter, webhookLimiter } from "./middleware/rateLimit.middleware.js";
+import { startSubscriptionCron } from "./cron/subscriptionCron.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -140,6 +141,9 @@ const startServer = async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
     });
+    
+    // Start background jobs
+    startSubscriptionCron();
 
     // Graceful Shutdown Logic
     const shutdown = () => {

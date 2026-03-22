@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import SubscriptionBanner from './SubscriptionBanner';
 
 const mainNav = [
   { tab: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -37,7 +38,7 @@ function DashboardShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
-  const { user, restaurant, signOut } = useAuth();
+  const { user, restaurant, subscription, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -169,11 +170,11 @@ function DashboardShellContent({ children }: { children: React.ReactNode }) {
             <LogOut className="w-5 h-5" />
             Sign out
           </button>
-        </div>
       </aside>
 
       {/* Main content */}
       <main className="flex-1 min-w-0 flex flex-col">
+        {subscription && <SubscriptionBanner subscription={subscription} />}
         {children}
       </main>
     </div>

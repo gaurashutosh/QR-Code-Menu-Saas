@@ -27,27 +27,14 @@ export const createRestaurant = async (req, res, next) => {
     // Generate QR code
     await generateQRCode(restaurant);
 
-    // Create trial subscription automatically
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 7); // 7 day trial
-
-    const subscription = await Subscription.create({
-      user: req.user._id,
-      restaurant: restaurant._id,
-      plan: "trial",
-      status: "trialing",
-      trialStart: new Date(),
-      trialEnd,
-    });
-
     res.status(201).json({
       success: true,
       data: {
         restaurant,
         subscription: {
-          plan: subscription.plan,
-          status: subscription.status,
-          trialEnd: subscription.trialEnd,
+          plan: "trial",
+          status: "trial",
+          // The exact trial dates are on the user object, but we can pass basic info if needed by frontend
         },
       },
     });

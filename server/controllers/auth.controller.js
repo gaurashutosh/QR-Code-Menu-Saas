@@ -16,13 +16,23 @@ export const getMe = async (req, res, next) => {
     const restaurant = await Restaurant.findOne({ owner: req.user._id });
     // console.log("Restaurant found:", restaurant ? restaurant._id : "no");
 
-    // Get subscription if restaurant exists
-    let subscription = null;
-    if (restaurant) {
-      subscription = await Subscription.findOne({
-        restaurant: restaurant._id,
-        user: req.user._id,
-      });
+    // Subscription logic is now handled directly on the User model
+    const now = new Date();
+    let isActive = false;
+    let daysRemaining = 0;
+
+    if (user.subscriptionStatus === "active") {
+      if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) > now) {
+        isActive = true;
+        const diff = new Date(user.subscriptionEndDate) - now;
+        daysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      }
+    } else if (user.subscriptionStatus === "trial") {
+      if (user.trialEndDate && new Date(user.trialEndDate) > now) {
+        isActive = true;
+        const diff = new Date(user.trialEndDate) - now;
+        daysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      }
     }
 
     const userData = {
@@ -37,22 +47,14 @@ export const getMe = async (req, res, next) => {
             menuViewCount: restaurant.menuViewCount,
           }
         : null,
-      subscription: subscription
-        ? {
-            plan: subscription.plan,
-            status: subscription.status,
-            isActive:
-              typeof subscription.isActive === "function"
-                ? subscription.isActive()
-                : false,
-            daysRemaining:
-              typeof subscription.getDaysRemaining === "function"
-                ? subscription.getDaysRemaining()
-                : 0,
-            currentPeriodEnd: subscription.currentPeriodEnd,
-            billingCycle: subscription.billingCycle,
-          }
-        : null,
+      subscription: {
+        status: user.subscriptionStatus,
+        plan: user.planType || "trial",
+        isActive,
+        daysRemaining,
+        currentPeriodEnd: user.subscriptionStatus === "active" ? user.subscriptionEndDate : user.trialEndDate,
+        billingCycle: user.planType || "trial",
+      },
     };
 
     res.json({

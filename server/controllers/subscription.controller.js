@@ -55,62 +55,44 @@ export const createCheckoutSession = async (req, res, next) => {
       });
     }
 
-    const subscriptionId = `sub_${crypto.randomBytes(12).toString("hex")}`;
+    const orderId = `ord_${crypto.randomBytes(12).toString("hex")}`;
 
-    // Create subscription in Cashfree
-    const subscriptionRequest = {
-      subscription_id: subscriptionId,
-      plan_details: {
-        plan_id: planInfo.cfPlanId,
-      },
+    // Create Order in Cashfree for non-recurring payment
+    const orderRequest = {
+      order_id: orderId,
+      order_amount: planInfo.amount,
+      order_currency: "INR",
       customer_details: {
-        customer_name: req.user.displayName,
+        customer_id: req.user.firebaseUid.substring(0, 50),
+        customer_name: req.user.displayName || "Customer",
         customer_email: req.user.email,
         customer_phone: restaurant.phone,
       },
-      subscription_meta: {
-        return_url: `${process.env.CLIENT_URL}/api/cashfree/return`,
+      order_meta: {
+        return_url: `${process.env.CLIENT_URL}/api/cashfree/return?order_id={order_id}&cf_status={order_status}`,
+      },
+      order_tags: {
+        plan: plan,
+        userId: req.user._id.toString(),
       }
     };
 
-    const response = await cashfree.post("/subscriptions", subscriptionRequest);
+    const response = await cashfree.post("/orders", orderRequest);
     const cfResponse = response.data;
-    console.log("Cashfree Subscription Response:", JSON.stringify(cfResponse, null, 2));
-    
-    // Get current subscription to check status and avoid cutting off access
-    const currentSub = await Subscription.findOne({ restaurant: restaurant._id });
-    const isCurrentlyActive = currentSub && (
-      currentSub.status === "active" || 
-      (currentSub.status === "trialing" && currentSub.trialEnd > new Date())
-    );
-
-    // Save partial subscription info to DB
-    await Subscription.findOneAndUpdate(
-      { restaurant: restaurant._id },
-      {
-        user: req.user._id,
-        cfSubscriptionId: subscriptionId,
-        cfPlanId: planInfo.cfPlanId,
-        plan: "Premium",
-        billingCycle: plan === "yearly" ? "yearly" : "monthly",
-        status: isCurrentlyActive ? currentSub.status : "incomplete",
-      },
-      { upsert: true }
-    );
+    console.log("Cashfree Order Response:", JSON.stringify(cfResponse, null, 2));
 
     // Log the event
     await PaymentLog.create({
       event: "PAYMENT_INITIATED",
-      subscriptionId,
+      subscriptionId: orderId, // using orderId here
       restaurant: restaurant._id,
       status: "incomplete",
-      payload: { plan, planId: planInfo.cfPlanId }
+      payload: { plan, planId: planInfo.cfPlanId, orderId }
     });
 
     // Return session ID for Cashfree JS SDK checkout
-    // Also try to find a direct URL as fallback
-    const sessionId = cfResponse.subscription_session_id;
-    const directUrl = cfResponse.auth_url || cfResponse.authLink || cfResponse.authorization_link;
+    const sessionId = cfResponse.payment_session_id;
+    const directUrl = cfResponse.payment_link;
     
     if (!sessionId && !directUrl) {
       console.error("❌ Cashfree returned no session ID or URL:", Object.keys(cfResponse));
@@ -125,7 +107,7 @@ export const createCheckoutSession = async (req, res, next) => {
       data: { 
         sessionId: sessionId,
         url: directUrl,
-        cfSubscriptionId: subscriptionId,
+        cfSubscriptionId: orderId,
         environment: process.env.CASHFREE_ENV === "PRODUCTION" ? "production" : "sandbox",
       },
     });
@@ -138,21 +120,6 @@ export const createCheckoutSession = async (req, res, next) => {
 /**
  * Handle Cashfree webhook
  * POST /api/subscription/webhook
- * 
- * Cashfree Subscription Webhook Payload Structure (v2023-08-01):
- * {
- *   "type": "SUBSCRIPTION_STATUS_CHANGE",
- *   "event_time": "2024-01-01T00:00:00Z",
- *   "data": {
- *     "subscription_details": {
- *       "cf_subscription_id": "123",
- *       "subscription_id": "sub_xxx",
- *       "subscription_status": "ACTIVE",
- *       ...
- *     },
- *     "payment_details": { ... }  // present for payment events
- *   }
- * }
  */
 export const handleWebhook = async (req, res) => {
   try {
@@ -179,137 +146,95 @@ export const handleWebhook = async (req, res) => {
 
     // Parse verified payload
     const payload = JSON.parse(rawBody);
-    
-    // === EVENT TYPE EXTRACTION ===
-    // Cashfree uses "type" for newer versions, "cf_event" for legacy
     const event = payload.type || payload.event || payload.cf_event;
-    
-    // === DATA EXTRACTION ===
-    // v2023+: data.subscription_details / data.payment_details
-    // Legacy: data.subscription / flat cf_ fields
     const eventData = payload.data || {};
-    const subDetails = eventData.subscription_details || eventData.subscription || eventData;
-    const paymentDetails = eventData.payment_details || eventData.payment || {};
+    const orderDetails = eventData.order || {};
+    const paymentDetails = eventData.payment || {};
     
-    // === SUBSCRIPTION ID EXTRACTION ===
-    // Try all known field paths across Cashfree API versions
-    const subscriptionId = 
-      subDetails.subscription_id ||           // v2023: data.subscription_details.subscription_id
-      subDetails.cf_subscription_id ||        // v2023: data.subscription_details.cf_subscription_id
-      eventData.subscription_id ||            // flat: data.subscription_id
-      payload.cf_subscriptionId ||            // legacy: cf_subscriptionId
-      payload.cf_subReferenceId ||            // legacy: cf_subReferenceId
-      null;
+    const orderId = orderDetails.order_id || payload.orderId;
     
-    // Log everything for production debugging
-    console.log(`🔔 Webhook received — Event: "${event}" | Sub: ${subscriptionId}`);
-    console.log(`📦 Top-level keys: [${Object.keys(payload).join(", ")}]`);
-    console.log(`📦 Data keys: [${Object.keys(eventData).join(", ")}]`);
-    if (eventData.subscription_details) {
-      console.log(`📦 subscription_details keys: [${Object.keys(eventData.subscription_details).join(", ")}]`);
-    }
-    // Full payload dump for debugging (remove in production once stable)
-    console.log(`📋 Full payload: ${JSON.stringify(payload, null, 2)}`);
+    console.log(`🔔 Webhook received — Event: "${event}" | Order: ${orderId}`);
 
     // Log to database for audit trail
     await PaymentLog.create({
       event: `WEBHOOK_${event || 'UNKNOWN'}`,
-      subscriptionId: subscriptionId,
+      subscriptionId: orderId,
       payload: payload,
       status: "verified",
       ipAddress: req.ip
     });
 
-    // === HANDLE TEST WEBHOOKS ===
-    // Cashfree dashboard "Test" button sends: { type: "WEBHOOK", data: { test_object: {...} } }
     if (!event || event === "WEBHOOK") {
-      console.log("✅ Test webhook received and acknowledged.");
       return res.status(200).json({ success: true, message: "Test webhook received" });
     }
 
-    // === PROCESS REAL EVENTS ===
-    const subStatus = (subDetails.subscription_status || subDetails.status || payload.cf_status || "").toUpperCase();
+    if (event === "PAYMENT_SUCCESS_WEBHOOK" || event === "ORDER_PAY_SUCCESS") {
+      // Payment Successful - We need to activate the subscription on the User
+      const orderTags = orderDetails.order_tags || {};
+      const plan = orderTags.plan; // "monthly" or "yearly"
+      const userId = orderTags.userId;
 
-    switch (event) {
-      // ── Subscription Status Changes ──
-      case "SUBSCRIPTION_STATUS_CHANGE":
-      case "SUBSCRIPTION_STATUS_CHANGED": {
-        console.log(`📋 Status change → ${subStatus} for ${subscriptionId}`);
-
-        if (subStatus === "ACTIVE") {
-          await Subscription.findOneAndUpdate(
-            { cfSubscriptionId: subscriptionId },
-            { 
-              status: "active",
-              currentPeriodStart: subDetails.current_period_start ? new Date(subDetails.current_period_start) : new Date(),
-              currentPeriodEnd: subDetails.current_period_end ? new Date(subDetails.current_period_end) : null,
-            }
-          );
-          console.log(`✅ Subscription ${subscriptionId} ACTIVATED`);
-        } else if (["CANCELLED", "CUSTOMER_CANCELLED", "EXPIRED", "COMPLETED"].includes(subStatus)) {
-          await Subscription.findOneAndUpdate(
-            { cfSubscriptionId: subscriptionId },
-            { status: "canceled", cancelAtPeriodEnd: true }
-          );
-          console.log(`🚫 Subscription ${subscriptionId} → ${subStatus}`);
-        } else if (["ON_HOLD", "PAST_DUE", "BANK_APPROVAL_PENDING"].includes(subStatus)) {
-          await Subscription.findOneAndUpdate(
-            { cfSubscriptionId: subscriptionId },
-            { status: "past_due" }
-          );
-          console.log(`⚠️ Subscription ${subscriptionId} → ${subStatus}`);
-        }
-        break;
+      if (!userId) {
+        console.error("❌ Webhook missing userId in order_tags");
+        return res.status(400).json({ success: false, message: "Missing userId" });
       }
 
-      // ── Payment Success ──
-      case "SUBSCRIPTION_PAYMENT_SUCCESS":
-      case "SUBSCRIPTION_NEW_PAYMENT_SUCCESS": {
-        await Subscription.findOneAndUpdate(
-          { cfSubscriptionId: subscriptionId },
-          { status: "active" }
-        );
-        console.log(`💰 Payment SUCCESS for ${subscriptionId}`);
-        break;
+      const user = await User.findById(userId);
+      if (!user) {
+        console.error(`❌ User ${userId} not found for order ${orderId}`);
+        return res.status(404).json({ success: false, message: `User ${userId} not found` });
       }
 
-      // ── Payment Failed ──
-      case "SUBSCRIPTION_PAYMENT_FAILED":
-      case "SUBSCRIPTION_NEW_PAYMENT_FAILED": {
-        console.warn(`❌ Payment FAILED for ${subscriptionId}`);
-        // Don't deactivate immediately — Cashfree will retry
-        break;
-      }
-
-      // ── Auth Status (checkout completed) ──
-      case "SUBSCRIPTION_AUTH_STATUS": {
-        const authStatus = (subDetails.authorization_status || subDetails.auth_status || "").toUpperCase();
-        console.log(`🔑 Auth status → ${authStatus} for ${subscriptionId}`);
+      try {
+        const now = new Date();
+        const endDate = new Date(now);
         
-        if (authStatus === "ACTIVE" || authStatus === "APPROVED") {
-          await Subscription.findOneAndUpdate(
-            { cfSubscriptionId: subscriptionId },
-            { status: "active" }
-          );
-          console.log(`✅ Auth approved → Subscription ${subscriptionId} ACTIVATED`);
+        if (plan === "yearly") {
+          endDate.setDate(endDate.getDate() + 365);
+        } else {
+          endDate.setDate(endDate.getDate() + 30); // Default monthly
         }
-        break;
-      }
 
-      // ── Payment Cancelled ──
-      case "SUBSCRIPTION_PAYMENT_CANCELLED": {
-        console.log(`🚫 Payment cancelled for ${subscriptionId}`);
-        break;
-      }
+        // Update User model (source of truth)
+        user.subscriptionStatus = "active";
+        user.subscriptionStartDate = now;
+        user.subscriptionEndDate = endDate;
+        user.planType = plan || "monthly";
+        await user.save();
 
-      // ── Refund ──
-      case "SUBSCRIPTION_REFUND_STATUS": {
-        console.log(`💸 Refund event for ${subscriptionId}`);
-        break;
-      }
+        // Also upsert Subscription model for backward-compat with status/history/cancel endpoints
+        const restaurant = await Restaurant.findOne({ owner: user._id });
+        if (restaurant) {
+          await Subscription.findOneAndUpdate(
+            { restaurant: restaurant._id },
+            {
+              user: user._id,
+              plan: "Premium",
+              status: "active",
+              billingCycle: plan === "yearly" ? "yearly" : "monthly",
+              currentPeriodStart: now,
+              currentPeriodEnd: endDate,
+            },
+            { upsert: true }
+          );
+        }
 
-      default:
-        console.log(`ℹ️ Unhandled event type: "${event}"`);
+        console.log(`✅ User ${user._id} subscription activated until ${endDate}`);
+
+        try {
+          const { sendSubscriptionActivatedEmail } = await import("../services/emailService.js");
+          await sendSubscriptionActivatedEmail(user, plan, now, endDate);
+        } catch (emailErr) {
+          console.error("⚠️ Failed to send activation email:", emailErr.message);
+        }
+      } catch (saveErr) {
+        console.error(`❌ Failed to activate subscription for user ${userId}:`, saveErr.message);
+        return res.status(500).json({ success: false, message: "Failed to activate subscription" });
+      }
+    } else if (event === "PAYMENT_FAILED_WEBHOOK" || event === "ORDER_PAY_FAILED") {
+      console.warn(`❌ Payment FAILED for ${orderId}`);
+    } else {
+      console.log(`ℹ️ Unhandled event type: "${event}"`);
     }
 
     res.json({ success: true });
