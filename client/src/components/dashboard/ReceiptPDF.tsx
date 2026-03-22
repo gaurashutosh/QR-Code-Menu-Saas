@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { Crown, Mail, CreditCard, Calendar } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -19,11 +18,41 @@ interface ReceiptData {
   planDescription?: string;
 }
 
+// GST Rate: 18% (split into CGST 9% + SGST 9%)
+const GST_RATE = 0.18;
+
+/**
+ * Calculate tax breakdown from a GST-inclusive total.
+ * Base price + 18% GST = total  →  base = total / 1.18
+ */
+function getTaxBreakdown(total: number) {
+  const basePrice = total / (1 + GST_RATE);
+  const cgst = basePrice * 0.09;
+  const sgst = basePrice * 0.09;
+  return {
+    basePrice: Math.round(basePrice * 100) / 100,
+    cgst: Math.round(cgst * 100) / 100,
+    sgst: Math.round(sgst * 100) / 100,
+    totalTax: Math.round((cgst + sgst) * 100) / 100,
+    total,
+  };
+}
+
+function formatCurrency(amount: number) {
+  return '₹' + amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const date = d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return { time, date };
+}
+
 export const generateReceiptPDF = async (data: ReceiptData) => {
   const element = document.getElementById(`receipt-${data.invoiceNumber}`);
   if (!element) return;
 
-  // Temporarily show the receipt if it's hidden
   const originalDisplay = element.style.display;
   const originalPosition = element.style.position;
   const originalLeft = element.style.left;
@@ -62,136 +91,176 @@ export const generateReceiptPDF = async (data: ReceiptData) => {
 };
 
 export const ReceiptTemplate = ({ data }: { data: ReceiptData }) => {
+  const tax = getTaxBreakdown(data.amount);
+  const { time, date } = formatDate(data.date);
+
   return (
     <div
       id={`receipt-${data.invoiceNumber}`}
       className="hidden"
-      style={{ 
-        fontFamily: 'Inter, system-ui, sans-serif',
+      style={{
+        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
         backgroundColor: '#ffffff',
-        padding: '48px',
-        width: '800px',
-        color: '#111827'
+        width: '500px',
+        color: '#1a1a1a',
+        padding: '0',
       }}
     >
-      {/* Receipt Header */}
-      <div 
-        className="flex justify-between items-start mb-12"
-        style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '32px' }}
-      >
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <div 
-              className="w-12 h-12 flex items-center justify-center"
-              style={{ background: 'linear-gradient(to right, #f97316, #ef4444)', borderRadius: '16px' }}
-            >
-              <Crown className="w-7 h-7" style={{ color: '#ffffff' }} />
-            </div>
-            <span 
-              className="text-2xl font-bold bg-clip-text text-transparent"
-              style={{ 
-                backgroundImage: 'linear-gradient(to right, #f97316, #ef4444)',
-                WebkitBackgroundClip: 'text'
-              }}
-            >
-              QR Menu Premium
+      {/* ── Status Banner ───────────────────────────── */}
+      <div style={{
+        background: '#ffffff',
+        padding: '32px 32px 24px',
+        textAlign: 'center',
+        borderBottom: '2px dashed #e5e7eb',
+      }}>
+        <div style={{
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 12px',
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <h2 style={{
+          fontSize: '20px',
+          fontWeight: 700,
+          color: '#111827',
+          margin: '0 0 4px',
+          letterSpacing: '-0.02em',
+        }}>
+          Payment Successful
+        </h2>
+        <p style={{
+          fontSize: '12px',
+          color: '#9ca3af',
+          margin: 0,
+        }}>
+          Transaction completed securely via Cashfree
+        </p>
+      </div>
+
+      {/* ── Payment Details ──────────────────────────── */}
+      <div style={{ padding: '24px 32px' }}>
+        <h3 style={{
+          fontSize: '13px',
+          fontWeight: 700,
+          color: '#111827',
+          margin: '0 0 16px',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}>
+          Payment Details
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Invoice No.</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827', letterSpacing: '0.04em' }}>{data.invoiceNumber}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Payment Time</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+              {time} &nbsp;&nbsp; {date}
             </span>
           </div>
-          <h1 className="text-4xl font-extrabold mb-2 uppercase tracking-tight" style={{ color: '#111827' }}>Receipt</h1>
-          <p className="font-medium tracking-wide" style={{ color: '#6b7280' }}>Invoice #{data.invoiceNumber}</p>
-        </div>
-        <div className="text-right">
-          <div className="font-bold text-lg mb-1" style={{ color: '#111827' }}>{data.restaurantName}</div>
-          {data.restaurantAddress && <p className="text-sm" style={{ color: '#6b7280', margin: 0 }}>{data.restaurantAddress}</p>}
-          {data.restaurantPhone && <p className="text-sm" style={{ color: '#6b7280', margin: 0 }}>{data.restaurantPhone}</p>}
-        </div>
-      </div>
-
-      {/* Info Grid */}
-      <div className="grid grid-cols-2 gap-12 mb-12">
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#9ca3af' }}>Billed To</h3>
-          <div style={{ backgroundColor: '#f9fafb', padding: '24px', borderRadius: '16px' }}>
-            <p className="font-bold text-lg mb-1" style={{ color: '#111827', margin: 0 }}>{data.userName}</p>
-            <p className="flex items-center gap-2" style={{ color: '#4b5563', margin: 0 }}>
-              <Mail className="w-4 h-4" style={{ color: '#9ca3af' }} /> {data.userEmail}
-            </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Payment Method</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Cashfree</span>
           </div>
-        </div>
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#9ca3af' }}>Payment Details</h3>
-          <div className="space-y-3" style={{ backgroundColor: '#f9fafb', padding: '24px', borderRadius: '16px' }}>
-            <div className="flex justify-between items-center text-sm">
-              <span className="flex items-center gap-2 font-medium" style={{ color: '#6b7280' }}>
-                <Calendar className="w-4 h-4" style={{ color: '#9ca3af' }} /> Date
-              </span>
-              <span className="font-bold" style={{ color: '#111827' }}>{new Date(data.date).toLocaleDateString()}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="flex items-center gap-2 font-medium" style={{ color: '#6b7280' }}>
-                <CreditCard className="w-4 h-4" style={{ color: '#9ca3af' }} /> Method
-              </span>
-              <span className="font-bold" style={{ color: '#111827' }}>Credit Card (via Stripe)</span>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Payment Status</span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#16a34a' }}>Successful</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Customer</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{data.userName}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Restaurant</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{data.restaurantName}</span>
           </div>
         </div>
       </div>
 
-      {/* Plan Details Table */}
-      <div className="mb-12 overflow-hidden" style={{ borderRadius: '16px', border: '1px solid #f3f4f6' }}>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest" style={{ color: '#9ca3af' }}>Plan Description</th>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-right" style={{ color: '#9ca3af' }}>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="px-6 py-8">
-                <div className="font-bold text-lg mb-1" style={{ color: '#111827' }}>{data.planName}</div>
-                <p className="text-sm max-w-[350px]" style={{ color: '#6b7280', margin: 0 }}>
-                  {data.planDescription || 'Includes unlimited menu items, premium templates, advanced analytics, and priority support.'}
-                </p>
-              </td>
-              <td className="px-6 py-8 text-right">
-                <span className="text-2xl font-bold" style={{ color: '#111827' }}>
-                  {data.currency.toUpperCase()} {data.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {/* ── Divider ──────────────────────────────────── */}
+      <div style={{ borderBottom: '2px dashed #e5e7eb', margin: '0 32px' }} />
 
-      {/* Summary Area */}
-      <div className="flex justify-end mb-16">
-        <div 
-          className="w-[300px] p-8" 
-          style={{ 
-            backgroundColor: '#111827', 
-            borderRadius: '24px',
-            color: '#ffffff',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-          }}
-        >
-          <div className="flex justify-between items-center mb-4 pb-4" style={{ borderBottom: '1px solid #1f2937' }}>
-            <span className="text-sm font-medium" style={{ color: '#9ca3af' }}>Subtotal</span>
-            <span className="font-bold">{data.currency.toUpperCase()} {data.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+      {/* ── Plan & Tax Breakdown ─────────────────────── */}
+      <div style={{ padding: '24px 32px' }}>
+        <h3 style={{
+          fontSize: '13px',
+          fontWeight: 700,
+          color: '#111827',
+          margin: '0 0 16px',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}>
+          Billing Details
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Plan line item */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>{data.planName}</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{formatCurrency(tax.basePrice)}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-lg font-bold" style={{ color: '#9ca3af' }}>Total Paid</span>
-            <span className="text-3xl font-black">
-              {data.currency.toUpperCase()} {data.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </span>
+          {/* CGST */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>CGST (9%)</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>{formatCurrency(tax.cgst)}</span>
+          </div>
+          {/* SGST */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>SGST (9%)</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>{formatCurrency(tax.sgst)}</span>
+          </div>
+
+          {/* Separator */}
+          <div style={{ borderBottom: '1px solid #e5e7eb', margin: '4px 0' }} />
+
+          {/* Total */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Total</span>
+            <span style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>{formatCurrency(tax.total)}</span>
           </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="text-center pt-8" style={{ borderTop: '1px solid #f3f4f6' }}>
-        <p className="text-sm mb-2 font-bold uppercase tracking-wider" style={{ color: '#6b7280' }}>Thank you for Choosing QR Menu Premium!</p>
-        <p className="text-xs" style={{ color: '#9ca3af' }}>This is a computer generated receipt. For any billing queries, please contact support@qrmenu.com</p>
+      {/* ── Footer ───────────────────────────────────── */}
+      <div style={{
+        background: '#f9fafb',
+        padding: '20px 32px',
+        textAlign: 'center',
+        borderTop: '2px dashed #e5e7eb',
+      }}>
+        <p style={{
+          fontSize: '11px',
+          color: '#9ca3af',
+          margin: '0 0 4px',
+          fontWeight: 500,
+        }}>
+          Thank you for choosing QR Menu Premium!
+        </p>
+        <p style={{
+          fontSize: '10px',
+          color: '#d1d5db',
+          margin: 0,
+        }}>
+          This is a computer-generated receipt and does not require a signature.
+        </p>
+        <p style={{
+          fontSize: '10px',
+          color: '#d1d5db',
+          margin: '4px 0 0',
+        }}>
+          For billing queries, contact support@qrmenu.com
+        </p>
       </div>
     </div>
   );

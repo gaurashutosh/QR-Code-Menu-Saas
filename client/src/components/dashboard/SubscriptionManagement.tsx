@@ -97,8 +97,12 @@ export default function SubscriptionManagement() {
       // Clean up URL params
       const newUrl = window.location.pathname;
       router.replace(newUrl);
+    } else if (success === 'pending') {
+      toast('Payment verification is taking longer than expected. Please check back later.', { icon: '⏳' });
+      const newUrl = window.location.pathname;
+      router.replace(newUrl);
     } else if (canceled === 'true') {
-      toast.error('Payment was canceled');
+      toast.error('Payment failed or was cancelled. Please try again.');
       const newUrl = window.location.pathname;
       router.replace(newUrl);
     }
