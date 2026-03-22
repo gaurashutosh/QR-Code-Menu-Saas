@@ -58,8 +58,9 @@ export async function GET(request: NextRequest) {
   const cfStatus = searchParams.get('cf_status') || searchParams.get('cf_checkoutStatus') || '';
   const successStatuses = ['ACTIVE', 'SUCCESS', 'BANK_APPROVAL_PENDING', 'SUCCESS_DEBIT_PENDING', 'SUCCESS_TOKENIZATION_PENDING'];
   
-  // If we have status and it's successful, or if it's a known success identifier
-  const isSuccess = cfStatus && successStatuses.includes(cfStatus.toUpperCase());
+  // Align GET logic with POST: treat missing cfStatus as success.
+  // This ensures direct/bookmarked access behaves correctly.
+  const isSuccess = !cfStatus || successStatuses.includes(cfStatus.toUpperCase());
 
   let redirectPath = '/dashboard?tab=subscription';
   if (isSuccess) {
