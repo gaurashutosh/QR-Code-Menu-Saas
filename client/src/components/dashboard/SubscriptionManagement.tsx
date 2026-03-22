@@ -339,7 +339,7 @@ export default function SubscriptionManagement() {
         )}
 
       {/* Pricing Cards */}
-      <div className="grid md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto pt-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 max-w-4xl mx-auto pt-6 px-1 sm:px-0">
         {PLANS.map((plan) => (
           <div
             key={plan.id}
@@ -350,8 +350,8 @@ export default function SubscriptionManagement() {
             }`}
           >
             {plan.recommended && (
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-md">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-20">
+                <span className="px-5 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] sm:text-xs font-bold uppercase tracking-widest rounded-full shadow-lg border border-white/20">
                   Recommended
                 </span>
               </div>

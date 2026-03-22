@@ -25,13 +25,13 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import SubscriptionBanner from './SubscriptionBanner';
 
 const mainNav = [
-  { tab: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { tab: 'menu', label: 'Menu', icon: Utensils },
-  { tab: 'qr', label: 'QR Code', icon: QrCode },
-  { tab: 'settings', label: 'Settings', icon: Settings },
-  { tab: 'subscription', label: 'Subscription', icon: CreditCard },
-  { tab: 'customer-feedback', label: 'Feedback', icon: Star },
-  { tab: 'feedback', label: 'Help', icon: HelpCircle },
+  { tab: 'overview', label: 'Home', icon: LayoutDashboard, mobile: true },
+  { tab: 'menu', label: 'Menu', icon: Utensils, mobile: true },
+  { tab: 'qr', label: 'QR', icon: QrCode, mobile: true },
+  { tab: 'settings', label: 'Settings', icon: Settings, mobile: false },
+  { tab: 'subscription', label: 'Billing', icon: CreditCard, mobile: true },
+  { tab: 'customer-feedback', label: 'Reviews', icon: Star, mobile: false },
+  { tab: 'feedback', label: 'Help', icon: HelpCircle, mobile: false },
 ] as const;
 
 function DashboardShellContent({ children }: { children: React.ReactNode }) {
@@ -88,10 +88,10 @@ function DashboardShellContent({ children }: { children: React.ReactNode }) {
       {/* Sidebar: desktop always visible, mobile as drawer */}
       <aside
         className={cn(
-          'fixed lg:sticky top-0 left-0 z-50 lg:z-0 flex flex-col w-72 min-h-screen bg-white dark:bg-zinc-950 border-r border-gray-200/80 dark:border-gray-800',
-          'transition-transform duration-300 ease-out lg:translate-x-0',
+          'fixed lg:sticky top-0 left-0 z-50 lg:z-0 flex flex-col w-[280px] sm:w-72 min-h-screen bg-white dark:bg-zinc-950 border-r border-gray-200/80 dark:border-gray-800',
+          'transition-transform duration-300 ease-in-out lg:translate-x-0',
           'safe-area-inset-left',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         )}
       >
         <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 lg:border-b dark:border-gray-800">
@@ -111,7 +111,7 @@ function DashboardShellContent({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900"
+            className="lg:hidden p-2.5 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 border border-gray-100 dark:border-gray-800 transition-colors"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
@@ -170,13 +170,45 @@ function DashboardShellContent({ children }: { children: React.ReactNode }) {
             <LogOut className="w-5 h-5" />
             Sign out
           </button>
+        </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 flex flex-col">
+      <main className="flex-1 min-w-0 flex flex-col pb-20 lg:pb-0">
+        <div className="lg:hidden h-[1px] w-full bg-gray-100 dark:bg-gray-900" />
         {subscription && <SubscriptionBanner subscription={subscription} />}
         {children}
       </main>
+
+      {/* Mobile Bottom Navigation - Premium Glassy Look */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-t border-gray-200/80 dark:border-gray-800 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-center justify-around h-16 px-2 max-w-lg mx-auto">
+          {mainNav.filter(item => item.mobile).map(({ tab, label, icon: Icon }) => {
+            const isActive = currentTab === tab;
+            return (
+              <Link
+                key={tab}
+                href={`/dashboard?tab=${tab}`}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-1 min-w-[64px] transition-all duration-300 relative py-1',
+                  isActive ? 'text-orange-500 scale-105' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                )}
+              >
+                <div className={cn(
+                  'p-1.5 rounded-lg transition-colors',
+                  isActive ? 'bg-orange-50 dark:bg-orange-950/20' : ''
+                )}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-bold tracking-tight">{label}</span>
+                {isActive && (
+                  <div className="absolute top-0 w-8 h-1 bg-orange-500 rounded-full" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

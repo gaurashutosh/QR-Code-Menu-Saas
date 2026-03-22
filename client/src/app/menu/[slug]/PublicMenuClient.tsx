@@ -135,18 +135,18 @@ export default function PublicMenuClient({ data, slug }: PublicMenuClientProps) 
                 src={restaurant.coverImageUrl}
                 alt="Cover"
                 fill
-                className="object-cover opacity-40"
+                className="object-cover opacity-50 contrast-[1.1] brightness-[0.8]"
                 priority
              />
-             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
           </div>
         )}
         
-        <div className="relative h-full flex flex-col justify-end px-4 pb-6 max-w-2xl mx-auto">
-          <div className="flex items-end gap-3">
-             <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white dark:bg-zinc-900 p-1 shadow-lg flex-shrink-0 -mb-8 z-10">
+        <div className="relative h-full flex flex-col justify-end px-4 pb-8 max-w-2xl mx-auto">
+          <div className="flex items-end gap-4">
+             <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white dark:bg-zinc-900 p-1.5 shadow-2xl flex-shrink-0 -mb-10 z-10 border border-white/20">
                 {restaurant.logoUrl ? (
-                  <div className="relative w-full h-full rounded-lg overflow-hidden">
+                  <div className="relative w-full h-full rounded-xl overflow-hidden shadow-inner">
                      <Image
                         src={restaurant.logoUrl}
                         alt={restaurant.name}
@@ -155,16 +155,16 @@ export default function PublicMenuClient({ data, slug }: PublicMenuClientProps) 
                      />
                   </div>
                 ) : (
-                  <div className="w-full h-full bg-orange-50 dark:bg-orange-950/30 rounded-lg flex items-center justify-center text-orange-600 font-bold text-xl">
+                  <div className="w-full h-full bg-orange-50 dark:bg-zinc-800 rounded-xl flex items-center justify-center text-orange-600 dark:text-orange-400 font-black text-2xl">
                     {restaurant.name?.charAt(0) || '?'}
                   </div>
                 )}
              </div>
              
-             <div className="flex-1 pb-0.5">
-                <h1 className="text-xl sm:text-2xl font-bold mb-0.5 shadow-black/20 text-shadow leading-tight">{restaurant.name}</h1>
+             <div className="flex-1 pb-1">
+                <h1 className="text-2xl sm:text-3xl font-black mb-1 drop-shadow-md text-white leading-tight tracking-tight">{restaurant.name}</h1>
                 {restaurant.description && (
-                  <p className="text-white/90 text-xs line-clamp-1 font-medium">{restaurant.description}</p>
+                  <p className="text-white/95 text-[11px] sm:text-xs line-clamp-1 font-semibold uppercase tracking-wider opacity-90">{restaurant.description}</p>
                 )}
              </div>
           </div>
@@ -172,8 +172,8 @@ export default function PublicMenuClient({ data, slug }: PublicMenuClientProps) 
       </header>
 
       {/* Info Bar */}
-      <div className="bg-white dark:bg-zinc-950 border-b border-gray-100 dark:border-gray-800 px-4 pt-10 pb-3 shadow-sm relative z-0">
-        <div className="max-w-2xl mx-auto flex flex-col gap-3">
+      <div className="bg-white dark:bg-black border-b border-gray-100 dark:border-zinc-900 px-4 pt-14 pb-4 relative z-0">
+        <div className="max-w-2xl mx-auto flex flex-col gap-4">
            <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
             {formatAddress() && (
               <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-zinc-900 px-3 py-1.5 rounded-full">
@@ -182,9 +182,9 @@ export default function PublicMenuClient({ data, slug }: PublicMenuClientProps) 
               </div>
             )}
             {restaurant.phone && (
-              <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1.5 bg-green-50 dark:bg-green-950/30 px-3 py-1.5 rounded-full text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors">
+              <a href={`tel:${restaurant.phone}`} className="flex items-center gap-2 bg-green-500/10 dark:bg-green-500/20 px-4 py-2 rounded-full text-green-700 dark:text-green-400 hover:scale-105 transition-transform font-bold text-xs ring-1 ring-green-500/20">
                 <Phone className="w-3.5 h-3.5" />
-                <span>{restaurant.phone}</span>
+                <span>Call Us</span>
               </a>
             )}
           </div>
@@ -200,13 +200,13 @@ export default function PublicMenuClient({ data, slug }: PublicMenuClientProps) 
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
                 <input
                   type="text"
-                  placeholder="Search for dishes, drinks..."
+                  placeholder="Craving something?"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-gray-100 dark:bg-zinc-900 border-2 border-transparent focus:border-orange-500/20 focus:ring-4 focus:ring-orange-500/5 focus:bg-white dark:focus:bg-zinc-800 transition-all text-base placeholder:text-gray-400 dark:text-gray-200"
+                  className="w-full pl-12 pr-12 py-4 rounded-2xl bg-gray-100 dark:bg-zinc-900/80 border-2 border-transparent focus:border-orange-500/30 focus:ring-4 focus:ring-orange-500/5 focus:bg-white dark:focus:bg-zinc-800 transition-all text-base placeholder:text-gray-400 dark:text-gray-500 dark:text-gray-100 shadow-inner"
                 />
                 {searchQuery && (
-                  <button
+                   <button
                     onClick={() => setSearchQuery('')}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
                   >
@@ -502,7 +502,7 @@ function FeedbackForm({ restaurantId }: { restaurantId: string }) {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Star Rating */}
       <div className="flex flex-col items-center gap-3">
-        <div className="flex gap-1">
+        <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
               key={star}
@@ -510,13 +510,13 @@ function FeedbackForm({ restaurantId }: { restaurantId: string }) {
               onClick={() => setRating(star)}
               onMouseEnter={() => setHoveredRating(star)}
               onMouseLeave={() => setHoveredRating(0)}
-              className="p-1 transition-transform hover:scale-110 focus:outline-none"
+              className="p-1.5 transition-transform hover:scale-125 focus:outline-none touch-manipulation"
             >
               <Star
-                className={`w-8 h-8 ${
+                className={`w-10 h-10 sm:w-12 sm:h-12 ${
                   star <= (hoveredRating || rating)
-                    ? 'fill-yellow-400 text-yellow-400 drop-shadow-sm'
-                    : 'text-gray-300'
+                    ? 'fill-yellow-400 text-yellow-400 drop-shadow-lg'
+                    : 'text-gray-200 dark:text-zinc-800'
                 }`}
               />
             </button>

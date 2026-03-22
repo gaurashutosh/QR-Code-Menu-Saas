@@ -52,23 +52,23 @@ export default function HomePage() {
                     </Link>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 md:gap-4">
+                  <div className="flex items-center gap-2 sm:gap-4">
                     <ThemeToggle />
                     <Link
                       href={paths.admin.login}
-                      className="hidden sm:block text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                      className="hidden md:block text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                     >
                       Admin
                     </Link>
                     <Link
                       href={paths.login}
-                      className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-orange-600 transition-colors"
+                      className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-orange-600 transition-colors px-1"
                     >
                       Log in
                     </Link>
                     <Link
                       href={paths.signup}
-                      className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-sm font-semibold hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/20 active:scale-95"
+                      className="px-3 sm:px-5 py-2 sm:py-2.5 bg-orange-600 text-white rounded-xl text-xs sm:text-sm font-semibold hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/20 active:scale-95 whitespace-nowrap"
                     >
                       Get Started
                     </Link>

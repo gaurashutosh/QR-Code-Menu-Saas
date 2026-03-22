@@ -120,8 +120,8 @@ export default function QRCodeDisplay() {
             Place this QR code on tables or at the entrance for easy access.
           </p>
 
-          <div className="flex flex-wrap gap-3 justify-center w-full">
-            <Button onClick={handleDownload} disabled={!qrCode} className="flex-1 max-w-[160px] min-h-[44px]">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center w-full max-w-sm">
+            <Button onClick={handleDownload} disabled={!qrCode} className="flex-1 min-h-[48px] sm:min-h-[44px] text-base sm:text-sm">
               <Download className="w-4 h-4 mr-2" />
               Download
             </Button>
@@ -129,7 +129,7 @@ export default function QRCodeDisplay() {
               variant="outline"
               onClick={handleRegenerate}
               loading={regenerating}
-              className="flex-1 max-w-[160px] min-h-[44px]"
+              className="flex-1 min-h-[48px] sm:min-h-[44px] text-base sm:text-sm"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Regenerate

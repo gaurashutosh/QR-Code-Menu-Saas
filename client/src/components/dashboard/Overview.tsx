@@ -81,7 +81,7 @@ export default function Overview({ onNavigate }: OverviewProps) {
 
       {/* Stats Grid */}
       <section aria-label="Key Statistics">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <StatCard
             title="Menu Items"
             value={menuItems.length}
@@ -120,12 +120,12 @@ export default function Overview({ onNavigate }: OverviewProps) {
 
       {/* Quick Actions */}
       <section aria-label="Quick Actions">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
             Quick Actions
           </h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <ActionCard
             title="Manage Menu"
             description="Add items, edit prices, and organize categories."

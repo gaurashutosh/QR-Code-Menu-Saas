@@ -1,129 +1,77 @@
-# Restaurant QR Code Menu SaaS
+# 🍽️ Restaurant QR Code Menu SaaS
 
-A SaaS platform for restaurants to create digital QR code menus.
+A premium, full-stack SaaS platform empowering restaurants to create stunning, interactive digital menus accessible via instant QR codes. Built for performance, responsiveness, and a high-end customer experience.
+
+## ✨ Key Features
+
+### 💎 SaaS Subscription Lifecycle
+- **7-Day Auto-Trial:** Instant access for new restaurants with automated trial period tracking.
+- **Smart Enforcement:** Automated dashboard warning banners and public menu locking upon expiry.
+- **Billing Integration:** Seamless, non-recurring payment processing via Cashfree.
+- **Automated CRM:** Lifecycle email notifications (Activation, Reminders, Expiry) powered by Nodemailer and Daily Cron jobs.
+
+### 📱 Premium Mobile-First Experience
+- **Native-App Feel:** A reconstructed dashboard featuring a sleek **Mobile Bottom Navigation** and glassy drawers.
+- **Responsive Stats:** High-impact analytics and management grids optimized for every screen size.
+- **Sticky Operations:** Category-based sticky headers for effortless management of large menus.
+
+### 🍱 Immersive Diner Interface
+- **High-End Visuals:** Immersive restaurant headers with support for logos and branding.
+- **Touch-Optimized:** Large touch targets, intuitive category sliders, and a frictionless feedback system.
+- **Accessibility:** Full safe-area support for modern mobile browsers.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
 - Node.js 18+
 - MongoDB Atlas account
-- Firebase project
-- Cashfree account (test mode)
-- Cloudinary account
+- Firebase project (Auth)
+- Cashfree account
+- Cloudinary account (Image hosting)
 
-### Setup
+### 🛠️ Setup
 
-1. **Clone and install dependencies:**
-
+1. **Clone and Install:**
 ```bash
-# Install server dependencies
-cd server
-npm install
+# Server
+cd server && npm install
 
-# Install client dependencies
-cd ../client
-npm install
+# Client
+cd ../client && npm install
 ```
 
-2. **Configure environment variables:**
-
+2. **Environment Configuration:**
 ```bash
-# Server - copy and edit .env
-cd server
-cp .env.example .env
-# Edit .env with your credentials
-
-# Client - copy and edit .env.local
-cd ../client
-cp .env.local.example .env.local
-# Edit .env.local with your Firebase credentials
+# Server
+cp server/.env.example server/.env
+# Client
+cp client/.env.example client/.env.local
 ```
 
-3. **Start development servers:**
-
+3. **Development Mode:**
 ```bash
-# Terminal 1 - Start backend
-cd server
-npm run dev
+# Terminal 1 (Backend)
+cd server && npm run dev
 
-# Terminal 2 - Start frontend
-cd client
-npm run dev
+# Terminal 2 (Frontend)
+cd client && npm run dev
 ```
 
-4. **Open in browser:**
-
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000/api/health
-
-## 📁 Project Structure
+## 📁 Architecture
 
 ```
-├── client/                  # Next.js frontend
-│   ├── src/
-│   │   ├── app/            # App router pages
-│   │   ├── components/     # React components
-│   │   ├── context/        # React contexts
-│   │   ├── hooks/          # Custom hooks
-│   │   └── lib/            # Utilities & API
-│   └── .env.local
-│
-├── server/                  # Express backend
-│   ├── config/             # Configuration files
-│   ├── controllers/        # Route handlers
-│   ├── middleware/         # Express middleware
-│   ├── models/             # Mongoose models
-│   ├── routes/             # API routes
-│   ├── services/           # Business logic
-│   └── .env
-│
-└── prd.md                  # Product requirements
-```
-
-## 🔑 Environment Variables
-
-### Server (.env)
-
-| Variable                | Description                     |
-| ----------------------- | ------------------------------- |
-| `MONGODB_URI`           | MongoDB connection string       |
-| `FIREBASE_PROJECT_ID`   | Firebase project ID             |
-| `FIREBASE_PRIVATE_KEY`  | Firebase admin private key      |
-| `FIREBASE_CLIENT_EMAIL` | Firebase admin email            |
-| `CASHFREE_CLIENT_ID`    | Cashfree client ID              |
-| `CASHFREE_CLIENT_SECRET`| Cashfree client secret          |
-| `CASHFREE_ENV`          | TEST or PRODUCTION              |
-| `CLOUDINARY_*`          | Cloudinary credentials          |
-| `CLIENT_URL`            | Frontend URL                    |
-
-### Client (.env.local)
-
-| Variable                             | Description            |
-| ------------------------------------ | ---------------------- |
-| `NEXT_PUBLIC_FIREBASE_*`             | Firebase client config |
-| `NEXT_PUBLIC_API_URL`                | Backend API URL        |
-
-## 🧪 Testing
-
-```bash
-# Test API health
-curl http://localhost:5000/api/health
+├── client/                  # Next.js (Tailwind + Lucide)
+│   └── src/app/menu/[slug] # High-end Public Menu
+├── server/                  # Node.js + Express
+│   ├── cron/               # Daily Expiry & Email Jobs
+│   └── services/           # Email & Payment Logic
+└── prd.md                  # Product Specification
 ```
 
 ## 📦 Deployment
 
-### Frontend (Vercel)
-
-```bash
-cd client
-npx vercel
-```
-
-### Backend (Railway/Render)
-
-Deploy the `server` folder with environment variables configured.
+- **Frontend:** Vercel (Auto-deploy via GitHub)
+- **Backend:** Render / Railway (Configure with `npm start`)
 
 ## 📄 License
-
 MIT

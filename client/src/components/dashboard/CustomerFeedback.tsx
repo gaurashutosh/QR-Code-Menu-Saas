@@ -67,9 +67,9 @@ export default function CustomerFeedback() {
     }
   };
 
-  const renderStars = (rating: number, size: string = "w-4 h-4") => {
+  const renderStars = (rating: number, size: string = "w-5 h-5") => {
     return (
-      <div className="flex gap-0.5">
+      <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
@@ -198,7 +198,7 @@ export default function CustomerFeedback() {
                 </div>
                 
                 {item.comment && (
-                  <div className="ml-14 bg-gray-50/80 dark:bg-zinc-950/50 p-4 rounded-xl text-gray-700 dark:text-gray-300 text-sm md:text-base leading-relaxed border border-gray-100 dark:border-gray-800">
+                  <div className="ml-0 sm:ml-14 bg-gray-50/80 dark:bg-zinc-950/50 p-4 rounded-xl text-gray-700 dark:text-gray-300 text-sm md:text-base leading-relaxed border border-gray-100 dark:border-gray-800 mt-2 sm:mt-0">
                     "{item.comment}"
                   </div>
                 )}

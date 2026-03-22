@@ -188,26 +188,26 @@ export default function MenuManagement() {
             <div key={category._id} className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden transition-all hover:shadow-md">
               {/* Category Header */}
               <div
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
+                className="sticky top-[112px] lg:top-0 z-10 flex items-center justify-between p-4 cursor-pointer bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 onClick={() => toggleCategory(category._id)}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" onClick={(e) => e.stopPropagation()}>
                     <GripVertical className="w-5 h-5" />
                   </div>
                   {expandedCategories.has(category._id) ? (
-                    <ChevronDown className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                    <ChevronDown className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                   ) : (
-                    <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                    <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                   )}
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg">{category.name}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg truncate">{category.name}</h3>
+                    <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                       {getItemsByCategory(category._id).length} items
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -294,11 +294,11 @@ export default function MenuManagement() {
                             
                             {/* Item Details */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-medium text-gray-900 dark:text-white capitalize group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">{item.name}</h4>
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <h4 className="font-bold text-gray-900 dark:text-white capitalize group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors text-base">{item.name}</h4>
                                 {item.isBestseller && (
-                                  <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[10px] uppercase tracking-wider font-bold rounded-full flex items-center gap-1 border border-amber-200 dark:border-amber-900/50">
-                                    <Star className="w-3 h-3 fill-amber-700 dark:fill-amber-400" /> Bestseller
+                                  <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[9px] uppercase tracking-widest font-black rounded-lg flex items-center gap-1 border border-amber-200 dark:border-amber-900/50">
+                                    <Star className="w-2.5 h-2.5 fill-amber-700 dark:fill-amber-400" /> Bestseller
                                   </span>
                                 )}
                                 {item.isSpicy && (
@@ -307,8 +307,8 @@ export default function MenuManagement() {
                                   </span>
                                 )}
                               </div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">₹{item.price}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{item.description}</p>
+                              <p className="text-base font-bold text-gray-900 dark:text-white mt-2">₹{item.price}</p>
                             </div>
                           </div>
 
